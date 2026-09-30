@@ -63,20 +63,16 @@ export function MembershipCard({ m, onSelect, onRenew }: { m: Membership; onSele
       onKeyDown={(e) => usable && (e.key === 'Enter' || e.key === ' ') && onSelect()}
       className={`sf-card ${usable ? 'sf-card-interactive' : 'opacity-60'} flex flex-col gap-3`}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-3">
         <IconTile name={m.type === 'residential' ? 'globe' : 'server'} tone={m.type === 'residential' ? 'accent' : 'purple'} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className="min-w-0 truncate text-[14px] font-semibold">{m.planName}</h3>
-            <PoolTag m={m} />
-            <span className="flex-1" />
-            {m.status !== 'active' && <StatusPill status={m.status} />}
-          </div>
-          <div className="mt-1">
-            <MembershipMeta m={m} />
-          </div>
+        <div className="flex-1 min-w-0 flex items-center gap-2">
+          <h3 className="min-w-0 truncate text-[14px] font-semibold">{m.planName}</h3>
+          <PoolTag m={m} />
         </div>
-        {usable && <Icon name="chevronRight" size={16} className="mt-2.5 text-sf-text-muted shrink-0" />}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {m.status !== 'active' && <StatusPill status={m.status} />}
+          <MembershipMeta m={m} />
+        </div>
       </div>
 
       <UsageLine m={m} />
