@@ -37,10 +37,10 @@ export function HomeScreen() {
               <Glyph size={22} />
               <span className="min-w-0 flex-1">
                 <span className="block text-[10.5px] tracking-[0.14em] uppercase text-sf-text-muted leading-none mb-1">Membership</span>
-                <span className="flex items-center gap-1 text-[13.5px] font-semibold leading-none">
+                <span className="flex items-baseline gap-1.5 text-[13.5px] font-semibold leading-none">
                   <span className="truncate">{m.planName}</span>
                   <PoolTag m={m} />
-                  {canSwitch && <Icon name="chevronDown" size={14} className="text-sf-text-tertiary shrink-0" />}
+                  {canSwitch && <Icon name="chevronDown" size={14} className="text-sf-text-tertiary shrink-0 self-center" />}
                 </span>
               </span>
             </button>

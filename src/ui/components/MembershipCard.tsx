@@ -65,7 +65,7 @@ export function MembershipCard({ m, onSelect, onRenew }: { m: Membership; onSele
     >
       <div className="flex items-center gap-3">
         <IconTile name={m.type === 'residential' ? 'globe' : 'server'} tone={m.type === 'residential' ? 'accent' : 'purple'} />
-        <div className="flex-1 min-w-0 flex items-center gap-2">
+        <div className="flex-1 min-w-0 flex items-baseline gap-2">
           <h3 className="min-w-0 truncate text-[14px] font-semibold">{m.planName}</h3>
           <PoolTag m={m} />
         </div>
