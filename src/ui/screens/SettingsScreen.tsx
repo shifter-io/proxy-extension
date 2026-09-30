@@ -88,12 +88,12 @@ export function SettingsScreen() {
         <SectionLabel>Account</SectionLabel>
         <div className="sf-card !p-0 divide-y divide-sf-border-subtle">
           <div className="flex items-center gap-3 px-4 py-3">
-            <span className="w-8 h-8 rounded-full grid place-items-center bg-sf-accent-soft text-sf-accent-light text-[13px] font-semibold uppercase">
-              {session?.user.email[0]}
+            <span className="w-8 h-8 rounded-lg grid place-items-center bg-sf-accent-soft text-sf-accent-light">
+              <Icon name="lock" size={15} />
             </span>
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-medium truncate">{session?.user.email}</div>
-              <div className="text-[11.5px] text-sf-text-muted sf-mono">API key {maskKey(session?.apiKey)}</div>
+              <div className="text-[13px] font-medium">API key</div>
+              <div className="text-[11.5px] text-sf-text-muted sf-mono">{maskKey(session?.apiKey)}</div>
             </div>
           </div>
           <LinkRow onClick={() => openExternal(SHIFTER_URLS.panel)}>Open Shifter dashboard</LinkRow>

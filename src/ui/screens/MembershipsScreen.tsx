@@ -1,12 +1,12 @@
 import { isUsable } from '@/lib/format';
 import { Icon } from '../components/Icon';
 import { MembershipCard } from '../components/MembershipCard';
-import { EmptyState, Glyph, Screen, SectionLabel, TopBar } from '../components/primitives';
+import { EmptyState, Screen, SectionLabel, TopBar, Wordmark } from '../components/primitives';
 import { openExternal, SHIFTER_URLS } from '../links';
 import { useApp } from '../state/AppState';
 
 export function MembershipsScreen() {
-  const { memberships, membershipsError, reloadMemberships, selectMembership, reset, back, push, activeMembership, session } = useApp();
+  const { memberships, membershipsError, reloadMemberships, selectMembership, reset, back, push, activeMembership } = useApp();
 
   // Reached from Home via "switch plan" → back arrow; right after login → no back.
   const canGoBack = !!activeMembership;
@@ -24,8 +24,7 @@ export function MembershipsScreen() {
       header={
         <TopBar
           onBack={canGoBack ? back : undefined}
-          left={!canGoBack && <span className="pl-1"><Glyph size={22} /></span>}
-          title="Your memberships"
+          left={<span className="flex-1 pl-1.5"><Wordmark height={22} /></span>}
           right={
             <button type="button" className="sf-icon-btn" aria-label="Settings" onClick={() => push({ name: 'settings' })}>
               <Icon name="settings" size={16} />
@@ -48,9 +47,6 @@ export function MembershipsScreen() {
 
       {memberships && (
         <>
-          <p className="px-1 mb-4 text-[13px] text-sf-text-tertiary">
-            Signed in as <span className="text-sf-text-secondary">{session?.user.email}</span>. Choose which plan to browse with.
-          </p>
 
           {usable.length === 0 && (
             <EmptyState

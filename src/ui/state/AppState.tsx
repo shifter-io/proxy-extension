@@ -123,7 +123,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Boot: restore the stored session, or show login.
   useEffect(() => {
     if (!sessionReady || !activeReady || stack[0]?.name !== 'boot') return;
-    if (!session) return reset({ name: 'login' });
+    // Sessions saved before API-key sign-in have no key: treat as signed out.
+    if (!session?.apiKey) return reset({ name: 'login' });
     api.useSession(session);
     void routeAfterAuth(activeId);
   }, [sessionReady, activeReady]); // eslint-disable-line react-hooks/exhaustive-deps
