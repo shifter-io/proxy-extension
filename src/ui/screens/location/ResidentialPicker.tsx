@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { api } from '@/lib/api';
 import { describeTarget, POOL_LABEL, POPULAR_COUNTRIES, sameTarget } from '@/lib/format';
+import { clampTarget, POOL_LIMIT_NOTE, POOL_TARGETING } from '@/lib/pools';
 import type { GeoCountry, GeoRegion, GeoSearchResult, ResidentialMembership, ResidentialTarget } from '@/lib/types';
 import { Icon, type IconName } from '../../components/Icon';
 import { EmptyState, Flag, Screen, SearchInput, SectionLabel, TopBar } from '../../components/primitives';
@@ -27,7 +28,8 @@ const WORLDWIDE: ResidentialTarget = { kind: 'residential' };
 export function ResidentialPicker({ m }: { m: ResidentialMembership }) {
   const { back, targetFor, setTarget, recentTargets } = useApp();
   const current = targetFor(m.id);
-  const countryOnly = m.pool === 'country';
+  // Non-Geo never reaches this screen (Home locks the location card).
+  const countryOnly = !POOL_TARGETING[m.pool].subCountry;
 
   const [draft, setDraft] = useState<ResidentialTarget>(current?.kind === 'residential' ? current : WORLDWIDE);
   const [view, setView] = useState<View>(() =>
@@ -94,12 +96,21 @@ export function ResidentialPicker({ m }: { m: ResidentialMembership }) {
       }
       bodyClassName="px-3 pb-3"
     >
+      {POOL_LIMIT_NOTE[m.pool] && view.level === 'countries' && !query && (
+        <p className="mx-1 mt-1 mb-3 px-3 py-2.5 rounded-[10px] bg-white/[0.03] border border-sf-border-subtle text-[12px] leading-relaxed text-sf-text-tertiary flex gap-2">
+          <Icon name="lock" size={13} className="shrink-0 mt-0.5" />
+          {POOL_LIMIT_NOTE[m.pool]}
+        </p>
+      )}
       {view.level === 'countries' && (
         <CountriesView
           query={query}
           countryOnly={countryOnly}
           draft={draft}
-          recent={recentTargets.filter((t): t is ResidentialTarget => t.kind === 'residential' && (!countryOnly || (!t.region && !t.city && !t.asn)))}
+          recent={recentTargets
+            .filter((t): t is ResidentialTarget => t.kind === 'residential')
+            .map((t) => clampTarget(t, m.pool))
+            .filter((t, i, all) => all.findIndex((o) => sameTarget(o, t)) === i)}
           onPickCountry={(country) => {
             if (countryOnly) return void apply({ kind: 'residential', country });
             setDraft((d) => (d.country?.code === country.code ? d : { kind: 'residential', country }));
@@ -125,12 +136,6 @@ export function ResidentialPicker({ m }: { m: ResidentialMembership }) {
         <RegionView country={view.country} region={view.region} query={query} draft={draft} setDraft={setDraft} />
       )}
 
-      {countryOnly && view.level === 'countries' && !query && (
-        <p className="mx-2 mt-4 mb-2 text-[12px] leading-relaxed text-sf-text-muted flex gap-2">
-          <Icon name="lock" size={13} className="shrink-0 mt-0.5" />
-          Your Country Geo plan targets by country. Full Geo adds state, city and ASN targeting.
-        </p>
-      )}
     </Screen>
   );
 }

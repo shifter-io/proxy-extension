@@ -20,11 +20,13 @@ const delay = (ms = 350) => new Promise((resolve) => setTimeout(resolve, ms));
  *
  * Any key of 32+ letters/digits is accepted (real panel keys are 64). Its
  * prefix picks a scenario, so every branch of the UI can be exercised:
- *   single…   → one Residential membership (skips the picker)
+ *   single…   → one Residential Full Geo membership (skips the picker)
+ *   country…  → one Residential Country Geo membership
+ *   nongeo…   → one Residential Non-Geo membership
  *   isp…      → one ISP membership (skips the picker)
  *   none…     → no active memberships (empty state)
  *   invalid…  → rejected as an unknown key
- *   anything else → Residential + 2× ISP + 1 expired
+ *   anything else → Full Geo + Country Geo + Non-Geo + 2× ISP + 1 expired
  */
 export class MockShifterApi implements ShifterApi {
   private scenario = '';
@@ -57,6 +59,8 @@ export class MockShifterApi implements ShifterApi {
     await delay(500);
     const local = this.scenario;
     if (local === 'single') return MEMBERSHIPS.filter((m) => m.id === 'm_res_1');
+    if (local === 'country') return MEMBERSHIPS.filter((m) => m.id === 'm_res_country');
+    if (local === 'nongeo') return MEMBERSHIPS.filter((m) => m.id === 'm_res_nongeo');
     if (local === 'isp') return MEMBERSHIPS.filter((m) => m.id === 'm_isp_us');
     if (local === 'none') return MEMBERSHIPS.filter((m) => m.status === 'expired');
     return MEMBERSHIPS;
@@ -138,5 +142,5 @@ export class MockShifterApi implements ShifterApi {
 
 function scenarioOf(key: string): string {
   const k = key.toLowerCase();
-  return ['single', 'isp', 'none'].find((p) => k.startsWith(p)) ?? '';
+  return ['single', 'country', 'nongeo', 'isp', 'none'].find((p) => k.startsWith(p)) ?? '';
 }

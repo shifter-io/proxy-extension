@@ -32,10 +32,12 @@ The mock accepts any key of 32+ letters/digits (real panel keys are 64).
 | Key starts with  | Result                                               |
 | ---------------- | ---------------------------------------------------- |
 | `single`         | One Residential membership, goes straight to Connect |
+| `country`        | One Residential Country Geo membership               |
+| `nongeo`         | One Residential Non-Geo membership                   |
 | `isp`            | One ISP membership                                   |
 | `none`           | No active memberships (empty state)                  |
 | `invalid`        | Rejected: "This API key is not valid"                |
-| anything else    | Residential + 2× ISP + 1 expired (membership picker) |
+| anything else    | Full Geo + Country Geo + Non-Geo + 2× ISP + 1 expired |
 
 Example: `demo0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUV`
 

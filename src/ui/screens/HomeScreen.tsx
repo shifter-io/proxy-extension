@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { describeTarget, formatDuration, isUsable, targetCountryCode } from '@/lib/format';
+import { POOL_LIMIT_NOTE, POOL_TARGETING } from '@/lib/pools';
 import { sendProxyMessage } from '@/lib/proxy/messages';
 import type { Membership, Target } from '@/lib/types';
 import { Icon } from '../components/Icon';
@@ -65,6 +66,12 @@ export function HomeScreen() {
       />
 
       <LocationCard m={m} target={target} onOpen={() => push({ name: 'location' })} />
+      {m.type === 'residential' && !POOL_TARGETING[m.pool].country && (
+        <p className="mt-2.5 px-1 flex gap-2 text-[12px] leading-relaxed text-sf-text-muted">
+          <Icon name="lock" size={13} className="shrink-0 mt-0.5" />
+          {POOL_LIMIT_NOTE[m.pool]}
+        </p>
+      )}
 
       <div className="flex items-center gap-2 mt-3.5">
         {m.type === 'residential' && (
@@ -181,12 +188,14 @@ function Uptime({ since }: { since: string }) {
 // ── Location + plan ─────────────────────────────────────────────────────
 
 function LocationCard({ m, target, onOpen }: { m: Membership; target?: Target; onOpen: () => void }) {
-  const locked = m.type === 'residential' && m.pool === 'non-geo';
+  const locked = m.type === 'residential' && !POOL_TARGETING[m.pool].country;
   const { title, subtitle } = locked
-    ? { title: 'Random location', subtitle: 'Non-Geo plan · targeting not available' }
+    ? { title: 'Random location', subtitle: 'Worldwide · Non-Geo plan' }
     : m.type === 'isp' && !target
       ? { title: 'Choose an IP', subtitle: `${m.ipCount} static ISP IPs on this plan` }
-      : describeTarget(target);
+      : m.type === 'residential' && !POOL_TARGETING[m.pool].subCountry && target?.kind === 'residential' && target.country
+        ? { title: target.country.name, subtitle: 'Country-level · Country Geo plan' }
+        : describeTarget(target);
 
   return (
     <button

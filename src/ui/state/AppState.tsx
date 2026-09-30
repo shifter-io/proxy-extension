@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api } from '@/lib/api';
 import { isUsable, sameTarget } from '@/lib/format';
+import { clampTarget } from '@/lib/pools';
 import { sendProxyMessage } from '@/lib/proxy/messages';
 import {
   activeMembershipItem,
@@ -162,10 +163,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [connection, setActiveId],
   );
 
-  const targetFor = useCallback((membershipId: string) => targets[membershipId], [targets]);
+  /** Keeps a target within what the membership's pool can serve. */
+  const fitToPlan = useCallback(
+    (membershipId: string, target: Target): Target => {
+      const m = memberships?.find((x) => x.id === membershipId);
+      return m?.type === 'residential' && target.kind === 'residential' ? clampTarget(target, m.pool) : target;
+    },
+    [memberships],
+  );
+
+  const targetFor = useCallback(
+    (membershipId: string) => {
+      const t = targets[membershipId];
+      return t && fitToPlan(membershipId, t);
+    },
+    [targets, fitToPlan],
+  );
 
   const setTarget = useCallback(
-    async (membershipId: string, target: Target) => {
+    async (membershipId: string, picked: Target) => {
+      const target = fitToPlan(membershipId, picked);
       await setTargets({ ...targets, [membershipId]: target });
       if (target.kind === 'residential' && target.country) {
         const next = [target, ...recentTargets.filter((t) => !sameTarget(t, target))].slice(0, 5);
@@ -176,7 +193,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await sendProxyMessage({ type: 'proxy:connect', membershipId, target });
       }
     },
-    [targets, recentTargets, connection, setTargets, setRecentTargets],
+    [targets, recentTargets, connection, fitToPlan, setTargets, setRecentTargets],
   );
 
   const updateSettings = useCallback(
@@ -186,10 +203,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const connect = useCallback(async () => {
     if (!activeMembership) return;
-    const target = targets[activeMembership.id] ?? defaultTarget(activeMembership);
+    const target = targetFor(activeMembership.id) ?? defaultTarget(activeMembership);
     if (!target) return;
     await sendProxyMessage({ type: 'proxy:connect', membershipId: activeMembership.id, target });
-  }, [activeMembership, targets]);
+  }, [activeMembership, targetFor]);
 
   const disconnect = useCallback(async () => {
     await sendProxyMessage({ type: 'proxy:disconnect' });
