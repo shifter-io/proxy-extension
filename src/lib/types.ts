@@ -16,8 +16,8 @@ export interface User {
 
 export interface Session {
   user: User;
-  /** Opaque bearer token issued by the panel once the magic link is confirmed. */
-  token: string;
+  /** The user's panel API key (users.api_token). Sent on every API call. */
+  apiKey: string;
   createdAt: string;
 }
 
@@ -154,25 +154,3 @@ export type ConnectionState =
       exitIp: string;
     }
   | { status: 'error'; message: string };
-
-// ── Auth flow ───────────────────────────────────────────────────────────
-
-/** Mirrors the `flow` values returned by the panel's POST /login/check. */
-export type LoginCheckFlow =
-  | 'magic_link_sent'
-  | 'rate_limited'
-  | 'undeliverable_email'
-  | 'invalid_email';
-
-export interface LoginCheckResult {
-  flow: LoginCheckFlow;
-  /** Handle used to poll the confirmation status. */
-  requestId?: string;
-  newAccount?: boolean;
-}
-
-/** Mirrors GET /login/magic/status. */
-export type MagicLinkStatus =
-  | { status: 'pending' }
-  | { status: 'expired' }
-  | { status: 'confirmed'; session: Session };

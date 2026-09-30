@@ -2,7 +2,6 @@ import { Glyph, Spinner } from './components/primitives';
 import { HomeScreen } from './screens/HomeScreen';
 import { LocationScreen } from './screens/LocationScreen';
 import { LoginScreen } from './screens/LoginScreen';
-import { MagicLinkScreen } from './screens/MagicLinkScreen';
 import { MembershipsScreen } from './screens/MembershipsScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { AppProvider, useApp, type Route } from './state/AppState';
@@ -35,8 +34,6 @@ function Screen({ route }: { route: Route }) {
       return <Boot />;
     case 'login':
       return <LoginScreen />;
-    case 'magic':
-      return <MagicLinkScreen email={route.email} requestId={route.requestId} />;
     case 'memberships':
       return <MembershipsScreen />;
     case 'home':
@@ -49,7 +46,7 @@ function Screen({ route }: { route: Route }) {
 }
 
 function routeKey(route: Route) {
-  return route.name === 'magic' ? `magic-${route.requestId}` : route.name;
+  return route.name;
 }
 
 function Boot() {

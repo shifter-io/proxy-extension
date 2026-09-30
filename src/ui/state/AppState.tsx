@@ -18,7 +18,6 @@ import { useStorageItem } from '../hooks/useStorageItem';
 export type Route =
   | { name: 'boot' }
   | { name: 'login' }
-  | { name: 'magic'; email: string; requestId: string }
   | { name: 'memberships' }
   | { name: 'home' }
   | { name: 'location' }

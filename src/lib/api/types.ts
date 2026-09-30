@@ -5,8 +5,6 @@ import type {
   GeoRegion,
   GeoSearchResult,
   IspIp,
-  LoginCheckResult,
-  MagicLinkStatus,
   Membership,
   ProxyCredentials,
   Session,
@@ -19,12 +17,12 @@ import type {
  * in `api/index.ts` without touching any screen.
  */
 export interface ShifterApi {
-  /** Attach (or clear) the signed-in session; the HTTP client sends its token. */
+  /** Attach (or clear) the signed-in session; the HTTP client sends its API key. */
   useSession(session: Session | null): void;
 
-  // Auth (email-first magic link, same flow as shifter.io/login)
-  checkEmail(email: string): Promise<LoginCheckResult>;
-  magicLinkStatus(requestId: string): Promise<MagicLinkStatus>;
+  // Auth: the user pastes their panel API key; it is verified instantly.
+  /** Resolves with a session for a valid key, rejects with ApiError('unauthorized') otherwise. */
+  verifyApiKey(apiKey: string): Promise<Session>;
   signOut(): Promise<void>;
 
   // Account

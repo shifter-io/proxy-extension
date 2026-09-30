@@ -93,7 +93,7 @@ export function SettingsScreen() {
             </span>
             <div className="min-w-0 flex-1">
               <div className="text-[13px] font-medium truncate">{session?.user.email}</div>
-              <div className="text-[11.5px] text-sf-text-muted">Shifter account</div>
+              <div className="text-[11.5px] text-sf-text-muted sf-mono">API key {maskKey(session?.apiKey)}</div>
             </div>
           </div>
           <LinkRow onClick={() => openExternal(SHIFTER_URLS.panel)}>Open Shifter dashboard</LinkRow>
@@ -109,6 +109,12 @@ export function SettingsScreen() {
       </p>
     </Screen>
   );
+}
+
+/** Never render the full key: first 4 + last 4 only. */
+function maskKey(key?: string) {
+  if (!key) return '';
+  return `${key.slice(0, 4)}••••${key.slice(-4)}`;
 }
 
 function TtlStepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {

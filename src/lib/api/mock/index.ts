@@ -5,14 +5,12 @@ import type {
   GeoRegion,
   GeoSearchResult,
   IspIp,
-  LoginCheckResult,
-  MagicLinkStatus,
   Membership,
   ProxyCredentials,
   Session,
   User,
 } from '../../types';
-import type { ShifterApi } from '../types';
+import { ApiError, type ShifterApi } from '../types';
 import { ASNS, CITIES, COUNTRIES, ISP_IPS, MEMBERSHIPS, REGIONS } from './fixtures';
 
 const delay = (ms = 350) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -20,51 +18,30 @@ const delay = (ms = 350) => new Promise((resolve) => setTimeout(resolve, ms));
 /**
  * In-memory backend used until the panel exposes extension endpoints.
  *
- * The email typed at login picks a scenario, so every branch of the UI
- * can be exercised without a server:
- *   single@…   → one Residential membership (skips the picker)
- *   isp@…      → one ISP membership (skips the picker)
- *   none@…     → no active memberships (empty state)
- *   bounce@…   → "undeliverable email" error
+ * Any key of 32+ letters/digits is accepted (real panel keys are 64). Its
+ * prefix picks a scenario, so every branch of the UI can be exercised:
+ *   single…   → one Residential membership (skips the picker)
+ *   isp…      → one ISP membership (skips the picker)
+ *   none…     → no active memberships (empty state)
+ *   invalid…  → rejected as an unknown key
  *   anything else → Residential + 2× ISP + 1 expired
  */
 export class MockShifterApi implements ShifterApi {
-  private email = '';
-  private pendingPolls = new Map<string, number>();
+  private scenario = '';
 
   useSession(session: Session | null): void {
-    // A reopened popup restores the scenario from the stored session.
-    this.email = session?.user.email.toLowerCase() ?? '';
+    // A reopened popup restores the scenario from the stored key.
+    this.scenario = session ? scenarioOf(session.apiKey) : '';
   }
 
-  async checkEmail(email: string): Promise<LoginCheckResult> {
-    await delay(700);
-    const normalized = email.trim().toLowerCase();
-    if (normalized.startsWith('bounce@')) return { flow: 'undeliverable_email' };
-    this.email = normalized;
-    const requestId = `mlr_${Math.random().toString(36).slice(2, 10)}`;
-    this.pendingPolls.set(requestId, 0);
-    return { flow: 'magic_link_sent', requestId };
-  }
-
-  async magicLinkStatus(requestId: string): Promise<MagicLinkStatus> {
-    await delay(150);
-    const polls = this.pendingPolls.get(requestId);
-    if (polls === undefined) return { status: 'expired' };
-    // Pretend the user clicks the email link on the ~2nd poll.
-    if (polls < 1) {
-      this.pendingPolls.set(requestId, polls + 1);
-      return { status: 'pending' };
+  async verifyApiKey(apiKey: string): Promise<Session> {
+    await delay(650);
+    const key = apiKey.trim();
+    if (!/^[A-Za-z0-9]{32,}$/.test(key) || key.toLowerCase().startsWith('invalid')) {
+      throw new ApiError('Invalid API key', 'unauthorized');
     }
-    this.pendingPolls.delete(requestId);
-    return {
-      status: 'confirmed',
-      session: {
-        user: this.user(),
-        token: `mock_${requestId}`,
-        createdAt: new Date().toISOString(),
-      },
-    };
+    this.scenario = scenarioOf(key);
+    return { user: this.user(), apiKey: key, createdAt: new Date().toISOString() };
   }
 
   async signOut(): Promise<void> {
@@ -78,7 +55,7 @@ export class MockShifterApi implements ShifterApi {
 
   async memberships(): Promise<Membership[]> {
     await delay(500);
-    const local = this.email.split('@')[0];
+    const local = this.scenario;
     if (local === 'single') return MEMBERSHIPS.filter((m) => m.id === 'm_res_1');
     if (local === 'isp') return MEMBERSHIPS.filter((m) => m.id === 'm_isp_us');
     if (local === 'none') return MEMBERSHIPS.filter((m) => m.status === 'expired');
@@ -154,7 +131,12 @@ export class MockShifterApi implements ShifterApi {
   }
 
   private user(): User {
-    const email = this.email || 'demo@example.invalid';
-    return { id: 'u_mock', email };
+    const email = this.scenario ? `${this.scenario}@example.invalid` : 'demo@example.invalid';
+    return { id: 'u_mock', email, name: 'Demo User' };
   }
+}
+
+function scenarioOf(key: string): string {
+  const k = key.toLowerCase();
+  return ['single', 'isp', 'none'].find((p) => k.startsWith(p)) ?? '';
 }

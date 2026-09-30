@@ -1,7 +1,7 @@
 # Shifter — Proxy & VPN browser extension
 
 Browse through Shifter **Residential** and **ISP** proxies like a VPN, using an existing Shifter membership.
-Sign in with your Shifter email, pick a membership, choose where your traffic exits (country → state → city, plus ASN), and connect.
+Sign in with your Shifter API key, pick a membership, choose where your traffic exits (country → state → city, plus ASN), and connect.
 
 > **Status:** UI/UX phase. Every screen runs on mock data (`src/lib/api/mock`). No real proxying happens yet.
 
@@ -25,27 +25,28 @@ npm run icons          # regenerate public/icon/* from src/assets/shifter-app-ic
 npm run preview:ui     # after build: popup in a normal tab at http://localhost:4178/popup.html (?reset clears state)
 ```
 
-### Mock scenarios (chosen by the email you sign in with)
+### Mock scenarios (chosen by the API key's prefix)
 
-| Email            | Result                                               |
+The mock accepts any key of 32+ letters/digits (real panel keys are 64).
+
+| Key starts with  | Result                                               |
 | ---------------- | ---------------------------------------------------- |
-| `single@…`       | One Residential membership, goes straight to Connect |
-| `isp@…`          | One ISP membership                                   |
-| `none@…`         | No active memberships (empty state)                  |
-| `bounce@…`       | "Undeliverable email" login error                    |
+| `single`         | One Residential membership, goes straight to Connect |
+| `isp`            | One ISP membership                                   |
+| `none`           | No active memberships (empty state)                  |
+| `invalid`        | Rejected: "This API key is not valid"                |
 | anything else    | Residential + 2× ISP + 1 expired (membership picker) |
 
-The magic link "confirms" itself on the second poll.
+Example: `demo0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUV`
 
 ## Screens
 
-1. **Login**: email-first magic link, same copy, errors and polling cadence as `shifter.io/login` (Google/GitHub buttons included).
-2. **Check your inbox**: polls until the link is confirmed.
-3. **Memberships**: shown when the user has more than one usable plan. Shows traffic left, expiry/renewal and status; expired plans link to renew.
-4. **Connect (home)**: power button, exit IP and uptime, location card, session chip, plan usage. The header switches membership.
-5. **Location (Residential)**: one search box across countries, states, cities and ASNs, or browse Country → State → City with ASN as an extra filter. The chip bar shows exactly what will be targeted. Respects pools: *Full Geo* (all levels), *Country Geo* (country only), *Non-Geo* (locked).
-6. **IP picker (ISP)**: static IPs grouped by city, with a country filter and search.
-7. **Settings**: default sticky/rotating session and TTL, strict location, WebRTC protection, bypass list, account and sign-out.
+1. **Sign in with API key**: paste the key from Panel → Profile → API Key (`users.api_token`). It's verified on paste or on Continue, then the popup goes straight to the plans. No key yet? "Create a free account" opens `shifter.io/register`. The key is kept in `chrome.storage.local` and only shown masked in Settings.
+2. **Memberships**: shown when the user has more than one usable plan. Shows traffic left, expiry/renewal and status; expired plans link to renew.
+3. **Connect (home)**: power button, exit IP and uptime, location card, session chip, plan usage. The header switches membership.
+4. **Location (Residential)**: one search box across countries, states, cities and ASNs, or browse Country → State → City with ASN as an extra filter. The chip bar shows exactly what will be targeted. Respects pools: *Full Geo* (all levels), *Country Geo* (country only), *Non-Geo* (locked).
+5. **IP picker (ISP)**: static IPs grouped by city, with a country filter and search.
+6. **Settings**: default sticky/rotating session and TTL, strict location, WebRTC protection, bypass list, account and sign-out.
 
 ## Architecture (built for the API phase)
 
@@ -70,5 +71,5 @@ src/
 
 **Going live** means swapping two classes; no screen changes:
 
-- `HttpShifterApi implements ShifterApi`. Endpoints already in the panel: `POST /login/check`, `GET /login/magic/status`, `GET /api/v1/user/memberships`, geo catalog (`ResidentialGeoController`: countries/regions/cities/asns), static-residential proxies. New endpoints needed: an extension token from the magic-link confirmation, `GET /geo/search?q=`, and per-membership gateway credentials.
+- `HttpShifterApi implements ShifterApi`. The API key already authenticates `/api/v1/*` (`?api_token=`), e.g. `GET /api/v1/user/memberships`, geo catalog (`ResidentialGeoController`: countries/regions/cities/asns), static-residential proxies. New endpoints needed: a key-verify / `me` endpoint (returns the user for a key), `GET /geo/search?q=`, and per-membership gateway credentials.
 - `ChromeProxyController implements ProxyController`: `chrome.proxy.settings` with a PAC script (applies the bypass list), `webRequest.onAuthRequired` for credentials, and `privacy.network.webRTCIPHandlingPolicy`. Add the `proxy`, `webRequest`, `webRequestAuthProvider` and `privacy` permissions. Chrome can't authenticate SOCKS5, so the extension needs an HTTP(S) gateway port.
