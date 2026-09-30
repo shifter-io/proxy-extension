@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
-import { describeTarget, formatBytes, formatDate, isUsable, targetCountryCode, trafficLeft } from '@/lib/format';
+import { useEffect, useState, type ReactNode } from 'react';
+import { describeTarget, formatBytes, formatDuration, isUsable, targetCountryCode, trafficLeft } from '@/lib/format';
 import { POOL_LIMIT_NOTE, POOL_TARGETING } from '@/lib/pools';
 import { sendProxyMessage } from '@/lib/proxy/messages';
-import type { Membership, Target } from '@/lib/types';
+import type { Membership, ProxySettings, Target } from '@/lib/types';
 import { Icon } from '../components/Icon';
 import { PoolTag } from '../components/MembershipCard';
 import { Flag, Glyph, Screen, Spinner, TopBar } from '../components/primitives';
@@ -10,7 +10,7 @@ import { openExternal, SHIFTER_URLS } from '../links';
 import { defaultTarget, useApp } from '../state/AppState';
 
 export function HomeScreen() {
-  const { activeMembership: m, memberships, connection, push, connect, disconnect, targetFor } = useApp();
+  const { activeMembership: m, memberships, connection, push, connect, disconnect, targetFor, settings } = useApp();
   if (!m) return null;
 
   const target = targetFor(m.id) ?? defaultTarget(m);
@@ -56,8 +56,8 @@ export function HomeScreen() {
       }
       bodyClassName="px-5 pb-6 flex flex-col"
     >
-      {/* Hero + location sit centred in the space above the traffic footer. */}
-      <div className="flex-1 flex flex-col justify-center pb-2">
+      {/* Hero, location and stats form one block, centred in the popup. */}
+      <div className="flex-1 flex flex-col justify-center py-2">
       <ConnectHero
         status={status}
         exitIp={connection.status === 'connected' && connectedHere ? connection.exitIp : undefined}
@@ -82,9 +82,8 @@ export function HomeScreen() {
         </p>
       )}
 
+      <StatsCard m={m} settings={settings} onSession={() => push({ name: 'settings' })} />
       </div>
-
-      <PlanFooter m={m} />
     </Screen>
   );
 }
@@ -233,46 +232,93 @@ function LocationCard({ m, target, onOpen }: { m: Membership; target?: Target; o
 }
 
 /**
- * Minimal plan footer, no card: just what's left to use. Pinned to the
- * bottom of the screen. Expired plans show the renew link instead.
+ * Two-up stats card under the location, styled after the login page's
+ * .sf-auth-stats (micro uppercase label, mono value). Left: what's left on
+ * the plan. Right: the IP session, which opens Settings.
  */
-function PlanFooter({ m }: { m: Membership }) {
+function StatsCard({ m, settings, onSession }: { m: Membership; settings: ProxySettings; onSession: () => void }) {
+  return (
+    <section className="sf-card !p-0 mt-3 grid grid-cols-2 divide-x divide-sf-border-subtle overflow-hidden">
+      <UsageStat m={m} />
+      {m.type === 'isp' ? (
+        <Stat label="IP" value="Static" sub="Same IP every time" />
+      ) : (
+        <button
+          type="button"
+          onClick={onSession}
+          className="group text-left transition-colors hover:bg-white/[0.03]"
+          aria-label="Change IP session settings"
+        >
+          <Stat
+            label="Session"
+            value={settings.sessionMode === 'sticky' ? formatDuration(settings.ttlSeconds) : 'Rotating'}
+            sub={settings.sessionMode === 'sticky' ? 'Sticky IP' : 'New IP per request'}
+            action
+          />
+        </button>
+      )}
+    </section>
+  );
+}
+
+function UsageStat({ m }: { m: Membership }) {
   if (m.status === 'expired' || m.status === 'suspended') {
     return (
-      <footer className="mt-auto pt-8 flex items-center justify-between text-[12.5px]">
-        <span className="text-[#fca5a5]">
-          {m.status === 'expired' ? 'Expired' : 'Suspended'} <span className="text-sf-text-muted">· {formatDate(m.expiresAt)}</span>
-        </span>
-        <button type="button" className="sf-link-btn text-[12.5px] inline-flex items-center gap-1" onClick={() => openExternal(SHIFTER_URLS.renew(m.id))}>
-          Renew <Icon name="external" size={12} />
-        </button>
-      </footer>
+      <Stat
+        label="Plan"
+        value={<span className="text-[#fca5a5]">{m.status === 'expired' ? 'Expired' : 'Suspended'}</span>}
+        sub={
+          <button type="button" className="sf-link-btn text-[11.5px] inline-flex items-center gap-1" onClick={() => openExternal(SHIFTER_URLS.renew(m.id))}>
+            Renew <Icon name="external" size={11} />
+          </button>
+        }
+      />
     );
   }
-
-  if (m.type === 'isp') {
-    return (
-      <footer className="mt-auto pt-8 flex items-baseline justify-between text-[12.5px]">
-        <span className="text-sf-text-tertiary">Bandwidth</span>
-        <span className="sf-mono text-sf-text-secondary">Unlimited</span>
-      </footer>
-    );
-  }
+  if (m.type === 'isp') return <Stat label="Bandwidth" value="Unlimited" sub="No traffic cap" />;
 
   const { left, ratio } = trafficLeft(m);
   const tone = ratio <= 0.1 ? 'danger' : ratio <= 0.25 ? 'warning' : '';
   return (
-    <footer className="mt-auto pt-8">
-      <div className="flex items-baseline justify-between text-[12.5px]">
-        <span className="text-sf-text-tertiary">Traffic left</span>
-        <span className="sf-mono">
-          <span className="text-sf-text-primary font-medium">{formatBytes(left)}</span>
-          <span className="text-sf-text-muted"> / {formatBytes(m.trafficTotalBytes, 0)}</span>
+    <Stat
+      label="Traffic left"
+      value={
+        <>
+          {formatBytes(left)}
+          <span className="text-[12px] font-normal text-sf-text-muted"> / {formatBytes(m.trafficTotalBytes, 0)}</span>
+        </>
+      }
+      sub={
+        <span className="block h-[3px] mt-1 rounded-full bg-sf-bar-track overflow-hidden">
+          <span className={`block sf-progress-fill ${tone}`} style={{ width: `${Math.max(0, Math.min(1, ratio)) * 100}%` }} />
         </span>
-      </div>
-      <div className="mt-2 h-[3px] rounded-full bg-sf-bar-track overflow-hidden">
-        <div className={`sf-progress-fill ${tone}`} style={{ width: `${Math.max(0, Math.min(1, ratio)) * 100}%` }} />
-      </div>
-    </footer>
+      }
+    />
+  );
+}
+
+function Stat({
+  label,
+  value,
+  sub,
+  action,
+}: {
+  label: string;
+  value: ReactNode;
+  sub: ReactNode;
+  action?: boolean;
+}) {
+  return (
+    // <span> not <div>: this sits inside the Session <button>.
+    <span className="px-4 py-3.5 flex flex-col gap-1.5 min-w-0">
+      <span className="flex items-center justify-between sf-label !text-[10px]">
+        {label}
+        {action && <Icon name="chevronRight" size={13} className="text-sf-text-muted group-hover:text-sf-accent-light transition-colors" />}
+      </span>
+      <span className="flex items-center gap-1.5 sf-mono text-[15px] font-semibold text-sf-text-primary leading-none truncate">
+        {value}
+      </span>
+      <span className="text-[11.5px] text-sf-text-tertiary leading-tight truncate">{sub}</span>
+    </span>
   );
 }
