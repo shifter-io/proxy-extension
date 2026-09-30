@@ -431,6 +431,49 @@
     opacity: 0.6;
   }
 
+  /* Tooltip: same blue bubble + arrow as the panel's data-tooltip
+     (.sf-pgen__check), sized down for icon buttons. Usage:
+     <button data-tip="New IP">. Shows on hover and keyboard focus. */
+  [data-tip] { position: relative; }
+  [data-tip]::after,
+  [data-tip]::before {
+    position: absolute;
+    left: 50%;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.14s ease, transform 0.14s ease;
+    z-index: 50;
+  }
+  [data-tip]::after {
+    content: attr(data-tip);
+    bottom: calc(100% + 9px);
+    transform: translate(-50%, 4px);
+    padding: 6px 10px;
+    background: var(--sf-accent);
+    border-radius: 8px;
+    color: #fff;
+    font-family: 'Geist', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0;
+    white-space: nowrap;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  }
+  [data-tip]::before {
+    content: '';
+    bottom: calc(100% + 5px);
+    width: 8px;
+    height: 8px;
+    background: var(--sf-accent);
+    border-radius: 1px;
+    transform: translate(-50%, 4px) rotate(45deg);
+  }
+  [data-tip]:hover::after,
+  [data-tip]:focus-visible::after { opacity: 1; transform: translate(-50%, 0); transition-delay: 0.25s; }
+  [data-tip]:hover::before,
+  [data-tip]:focus-visible::before { opacity: 1; transform: translate(-50%, 0) rotate(45deg); transition-delay: 0.25s; }
+
   .sf-skeleton {
     background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.03) 75%);
     background-size: 200% 100%;

@@ -159,7 +159,7 @@ function ConnectHero({
                   onClick={onNewIp}
                   className="ml-0.5 grid place-items-center w-6 h-6 rounded-md text-sf-text-muted hover:text-sf-accent-light hover:bg-white/5"
                   aria-label="Get a new IP"
-                  title="New IP"
+                  data-tip="New IP"
                 >
                   <Icon name="refresh" size={13} />
                 </button>
