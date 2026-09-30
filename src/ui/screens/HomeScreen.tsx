@@ -4,7 +4,7 @@ import { POOL_LIMIT_NOTE, POOL_TARGETING } from '@/lib/pools';
 import { sendProxyMessage } from '@/lib/proxy/messages';
 import type { Membership, ProxySettings, Target } from '@/lib/types';
 import { Icon } from '../components/Icon';
-import { PoolTag } from '../components/MembershipCard';
+import { PoolTag, RenewalLine } from '../components/MembershipCard';
 import { Flag, Glyph, Screen, Spinner, TopBar } from '../components/primitives';
 import { openExternal, SHIFTER_URLS } from '../links';
 import { defaultTarget, useApp } from '../state/AppState';
@@ -83,6 +83,7 @@ export function HomeScreen() {
       )}
 
       <StatsCard m={m} settings={settings} onSession={() => push({ name: 'settings' })} />
+      <RenewalLine m={m} onRenew={() => openExternal(SHIFTER_URLS.renew(m.id))} className="mt-4" />
       </div>
     </Screen>
   );
@@ -262,19 +263,6 @@ function StatsCard({ m, settings, onSession }: { m: Membership; settings: ProxyS
 }
 
 function UsageStat({ m }: { m: Membership }) {
-  if (m.status === 'expired' || m.status === 'suspended') {
-    return (
-      <Stat
-        label="Plan"
-        value={<span className="text-[#fca5a5]">{m.status === 'expired' ? 'Expired' : 'Suspended'}</span>}
-        sub={
-          <button type="button" className="sf-link-btn text-[11.5px] inline-flex items-center gap-1" onClick={() => openExternal(SHIFTER_URLS.renew(m.id))}>
-            Renew <Icon name="external" size={11} />
-          </button>
-        }
-      />
-    );
-  }
   if (m.type === 'isp') return <Stat label="Bandwidth" value="Unlimited" sub="No traffic cap" />;
 
   const { left, ratio } = trafficLeft(m);

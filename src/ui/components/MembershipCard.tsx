@@ -25,6 +25,30 @@ export function PoolTag({ m }: { m: Membership }) {
   );
 }
 
+/**
+ * Centred "Renews in 23 days · 23 Oct 2026" line; expired/suspended plans
+ * get a Renew link. Used on the membership cards and under Home's stats.
+ */
+export function RenewalLine({ m, onRenew, className = '' }: { m: Membership; onRenew: () => void; className?: string }) {
+  return (
+    <div className={`flex items-center justify-center gap-3 text-center text-[12px] ${className}`}>
+      <ExpiryLine m={m} />
+      {!isUsable(m) && (
+        <button
+          type="button"
+          className="sf-link-btn text-[12px] inline-flex items-center gap-1"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRenew();
+          }}
+        >
+          Renew <Icon name="external" size={12} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function ExpiryLine({ m }: { m: Membership }) {
   if (m.status === 'expired') return <span className="text-[#fca5a5]">Expired {formatDate(m.expiresAt)}</span>;
   const verb = m.autoRenew ? 'Renews' : 'Expires';
@@ -84,21 +108,7 @@ export function MembershipCard({ m, onSelect, onRenew }: { m: Membership; onSele
 
       <UsageLine m={m} />
 
-      <div className="flex items-center justify-center gap-3 text-center text-[12px] pt-2.5 border-t border-sf-border-subtle">
-        <ExpiryLine m={m} />
-        {!usable && (
-          <button
-            type="button"
-            className="sf-link-btn text-[12px] inline-flex items-center gap-1"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRenew();
-            }}
-          >
-            Renew <Icon name="external" size={12} />
-          </button>
-        )}
-      </div>
+      <RenewalLine m={m} onRenew={onRenew} className="pt-2.5 border-t border-sf-border-subtle" />
     </div>
   );
 }
