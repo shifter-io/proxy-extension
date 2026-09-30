@@ -96,6 +96,9 @@
   }
   .sf-input--borderless { border-color: transparent; }
   .sf-input--borderless:focus { border-color: var(--sf-accent); }
+  /* Hides a secret without type="password", which would invite password
+     managers to decorate the field and offer to save the key. */
+  .sf-input--masked:not(:placeholder-shown) { -webkit-text-security: disc; }
 
   /* ── Buttons ────────────────────────────────────────────── */
   .sf-btn {

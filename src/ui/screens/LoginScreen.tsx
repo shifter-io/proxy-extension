@@ -84,24 +84,23 @@ export function LoginScreen() {
         </div>
 
         <form onSubmit={submit} noValidate className="mt-6">
-          <label htmlFor="sf-api-key" className="flex items-center justify-between mb-2">
-            <span className="text-[13px] font-medium text-sf-text-secondary">API key</span>
-            <button type="button" className="sf-link-btn text-[12px]" onClick={() => openExternal(SHIFTER_URLS.apiKey)}>
-              Where do I find it?
-            </button>
-          </label>
-
           <div className="relative">
             <input
-              id="sf-api-key"
               ref={inputRef}
-              type={reveal ? 'text' : 'password'}
-              className="sf-input sf-input--borderless sf-mono !pr-[76px] !text-[13px]"
-              placeholder="Paste your 64-character key"
+              type="text"
+              name="shifter-api-key"
+              aria-label="API key"
+              className={`sf-input sf-input--borderless !pr-[76px] ${reveal ? '' : 'sf-input--masked'}`}
+              placeholder="Enter your API key"
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck={false}
+              // Keep password managers from decorating / offering to save the key.
+              data-1p-ignore
+              data-lpignore="true"
+              data-bwignore
+              data-form-type="other"
               autoFocus
               value={key}
               disabled={busy}
@@ -131,11 +130,16 @@ export function LoginScreen() {
             </div>
           </div>
 
-          {error && <p className="mt-2 text-[12.5px] leading-relaxed text-[#fca5a5]">{error}</p>}
+          <div className="mt-2 flex items-start gap-3">
+            <p className="flex-1 text-[12.5px] leading-relaxed text-[#fca5a5]">{error}</p>
+            <button type="button" className="sf-link-btn text-[12.5px] shrink-0 leading-relaxed" onClick={() => openExternal(SHIFTER_URLS.apiKey)}>
+              Where do I find it?
+            </button>
+          </div>
 
           <button
             type="submit"
-            className={`sf-btn sf-btn-lg w-full mt-4 ${phase === 'verified' ? '!bg-[#22C55E] text-white' : 'sf-btn-primary'}`}
+            className={`sf-btn sf-btn-lg w-full mt-3 ${phase === 'verified' ? '!bg-[#22C55E] text-white' : 'sf-btn-primary'}`}
             disabled={busy}
             style={busy ? { opacity: 1 } : undefined}
           >
