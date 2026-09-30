@@ -3,7 +3,7 @@ import { describeTarget, formatDuration, isUsable, targetCountryCode } from '@/l
 import { sendProxyMessage } from '@/lib/proxy/messages';
 import type { Membership, Target } from '@/lib/types';
 import { Icon } from '../components/Icon';
-import { ExpiryLine, MembershipMeta, UsageLine } from '../components/MembershipCard';
+import { ExpiryLine, MembershipMeta, PoolTag, UsageLine } from '../components/MembershipCard';
 import { Flag, Glyph, Screen, Spinner, StatusPill, TopBar } from '../components/primitives';
 import { defaultTarget, useApp } from '../state/AppState';
 
@@ -39,6 +39,7 @@ export function HomeScreen() {
                 <span className="block text-[10.5px] tracking-[0.14em] uppercase text-sf-text-muted leading-none mb-1">Membership</span>
                 <span className="flex items-center gap-1 text-[13.5px] font-semibold leading-none">
                   <span className="truncate">{m.planName}</span>
+                  <PoolTag m={m} />
                   {canSwitch && <Icon name="chevronDown" size={14} className="text-sf-text-tertiary shrink-0" />}
                 </span>
               </span>

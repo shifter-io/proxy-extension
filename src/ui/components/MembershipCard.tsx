@@ -1,28 +1,21 @@
 import { POOL_LABEL, PRODUCT_LABEL, formatBytes, formatDate, isUsable, relativeDays, trafficLeft } from '@/lib/format';
 import type { Membership } from '@/lib/types';
 import { Icon } from './Icon';
-import { Flag, IconTile, ProgressBar, StatusPill } from './primitives';
+import { IconTile, ProgressBar, StatusPill } from './primitives';
 
-/** Type badge + pool/country line, shared by the list and the home plan card. */
+/** Product type badge (Residential / ISP), shared by the list and the home plan card. */
 export function MembershipMeta({ m }: { m: Membership }) {
   return (
-    <div className="flex items-center gap-1.5 text-[12px] text-sf-text-tertiary">
-      <span className={`sf-pill sf-pill--xs ${m.type === 'residential' ? 'sf-pill-info' : 'sf-pill-neutral'}`}>
-        {PRODUCT_LABEL[m.type]}
-      </span>
-      {m.type === 'residential' ? (
-        <span>{POOL_LABEL[m.pool]}</span>
-      ) : (
-        <span className="inline-flex items-center gap-1">
-          {m.countries.map((c) => (
-            <Flag key={c} code={c} className="!w-4 !h-[11px]" />
-          ))}
-          {/* The IP count is already in the plan title ("25 ISP Proxies"). */}
-          <span className="ml-0.5">{m.countries.map((c) => c.toUpperCase()).join(' · ')}</span>
-        </span>
-      )}
-    </div>
+    <span className={`sf-pill sf-pill--xs ${m.type === 'residential' ? 'sf-pill-info' : 'sf-pill-neutral'}`}>
+      {PRODUCT_LABEL[m.type]}
+    </span>
   );
+}
+
+/** Residential pool ("Full Geo") shown beside the plan title; nothing for ISP. */
+export function PoolTag({ m }: { m: Membership }) {
+  if (m.type !== 'residential') return null;
+  return <span className="shrink-0 text-[12px] font-normal text-sf-text-tertiary">{POOL_LABEL[m.pool]}</span>;
 }
 
 export function ExpiryLine({ m }: { m: Membership }) {
@@ -74,7 +67,9 @@ export function MembershipCard({ m, onSelect, onRenew }: { m: Membership; onSele
         <IconTile name={m.type === 'residential' ? 'globe' : 'server'} tone={m.type === 'residential' ? 'accent' : 'purple'} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className="flex-1 truncate text-[14px] font-semibold">{m.planName}</h3>
+            <h3 className="min-w-0 truncate text-[14px] font-semibold">{m.planName}</h3>
+            <PoolTag m={m} />
+            <span className="flex-1" />
             {m.status !== 'active' && <StatusPill status={m.status} />}
           </div>
           <div className="mt-1">
