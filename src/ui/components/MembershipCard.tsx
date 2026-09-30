@@ -15,7 +15,14 @@ export function MembershipMeta({ m }: { m: Membership }) {
 /** Residential pool ("Full Geo") shown beside the plan title; nothing for ISP. */
 export function PoolTag({ m }: { m: Membership }) {
   if (m.type !== 'residential') return null;
-  return <span className="shrink-0 text-[12px] font-normal text-sf-text-tertiary">{POOL_LABEL[m.pool]}</span>;
+  return (
+    <span className="shrink-0 text-[12px] font-normal text-sf-text-tertiary">
+      <span className="text-sf-text-muted mr-1.5" aria-hidden>
+        ·
+      </span>
+      {POOL_LABEL[m.pool]}
+    </span>
+  );
 }
 
 export function ExpiryLine({ m }: { m: Membership }) {
@@ -65,7 +72,7 @@ export function MembershipCard({ m, onSelect, onRenew }: { m: Membership; onSele
     >
       <div className="flex items-center gap-3">
         <IconTile name={m.type === 'residential' ? 'globe' : 'server'} tone={m.type === 'residential' ? 'accent' : 'purple'} />
-        <div className="flex-1 min-w-0 flex items-baseline gap-2">
+        <div className="flex-1 min-w-0 flex items-baseline gap-1.5">
           <h3 className="min-w-0 truncate text-[14px] font-semibold">{m.planName}</h3>
           <PoolTag m={m} />
         </div>
