@@ -1,0 +1,105 @@
+import { POOL_LABEL, PRODUCT_LABEL, formatBytes, formatDate, isUsable, relativeDays, trafficLeft } from '@/lib/format';
+import type { Membership } from '@/lib/types';
+import { Icon } from './Icon';
+import { Flag, IconTile, ProgressBar, StatusPill } from './primitives';
+
+/** Type badge + pool/country line, shared by the list and the home plan card. */
+export function MembershipMeta({ m }: { m: Membership }) {
+  return (
+    <div className="flex items-center gap-1.5 text-[12px] text-sf-text-tertiary">
+      <span className={`sf-pill sf-pill--xs ${m.type === 'residential' ? 'sf-pill-info' : 'sf-pill-neutral'}`}>
+        {PRODUCT_LABEL[m.type]}
+      </span>
+      {m.type === 'residential' ? (
+        <span>{POOL_LABEL[m.pool]}</span>
+      ) : (
+        <span className="inline-flex items-center gap-1">
+          {m.countries.map((c) => (
+            <Flag key={c} code={c} className="!w-4 !h-[11px]" />
+          ))}
+          <span className="ml-0.5">{m.ipCount} IPs</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+export function ExpiryLine({ m }: { m: Membership }) {
+  if (m.status === 'expired') return <span className="text-[#fca5a5]">Expired {formatDate(m.expiresAt)}</span>;
+  const verb = m.autoRenew ? 'Renews' : 'Expires';
+  const tone = m.status === 'expiring' ? 'text-[#f0b461]' : 'text-sf-text-tertiary';
+  return (
+    <span className={tone}>
+      {verb} {relativeDays(m.expiresAt)} <span className="text-sf-text-muted">· {formatDate(m.expiresAt)}</span>
+    </span>
+  );
+}
+
+export function UsageLine({ m }: { m: Membership }) {
+  if (m.type === 'isp') {
+    return (
+      <div className="flex items-center justify-between text-[12px]">
+        <span className="text-sf-text-tertiary">Bandwidth</span>
+        <span className="sf-mono text-sf-text-secondary">Unlimited</span>
+      </div>
+    );
+  }
+  const { left, ratio } = trafficLeft(m);
+  return (
+    <div>
+      <div className="flex items-baseline justify-between text-[12px] mb-1.5">
+        <span className="text-sf-text-tertiary">Traffic left</span>
+        <span className="sf-mono">
+          <span className="text-sf-text-primary font-medium">{formatBytes(left)}</span>
+          <span className="text-sf-text-muted"> / {formatBytes(m.trafficTotalBytes, 0)}</span>
+        </span>
+      </div>
+      <ProgressBar ratio={ratio} />
+    </div>
+  );
+}
+
+export function MembershipCard({ m, onSelect, onRenew }: { m: Membership; onSelect: () => void; onRenew: () => void }) {
+  const usable = isUsable(m);
+  return (
+    <div
+      role={usable ? 'button' : undefined}
+      tabIndex={usable ? 0 : -1}
+      onClick={usable ? onSelect : undefined}
+      onKeyDown={(e) => usable && (e.key === 'Enter' || e.key === ' ') && onSelect()}
+      className={`sf-card ${usable ? 'sf-card-interactive' : 'opacity-60'} flex flex-col gap-3`}
+    >
+      <div className="flex items-start gap-3">
+        <IconTile name={m.type === 'residential' ? 'globe' : 'server'} tone={m.type === 'residential' ? 'accent' : 'purple'} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h3 className="flex-1 truncate text-[14px] font-semibold">{m.planName}</h3>
+            {m.status !== 'active' && <StatusPill status={m.status} />}
+          </div>
+          <div className="mt-1">
+            <MembershipMeta m={m} />
+          </div>
+        </div>
+        {usable && <Icon name="chevronRight" size={16} className="mt-2.5 text-sf-text-muted shrink-0" />}
+      </div>
+
+      <UsageLine m={m} />
+
+      <div className="flex items-center justify-between text-[12px] pt-2.5 border-t border-sf-border-subtle">
+        <ExpiryLine m={m} />
+        {!usable && (
+          <button
+            type="button"
+            className="sf-link-btn text-[12px] inline-flex items-center gap-1"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRenew();
+            }}
+          >
+            Renew <Icon name="external" size={12} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
