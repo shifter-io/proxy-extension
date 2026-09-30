@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
-import { describeTarget, formatDuration, isUsable, targetCountryCode } from '@/lib/format';
+import { describeTarget, formatBytes, formatDate, isUsable, targetCountryCode, trafficLeft } from '@/lib/format';
 import { POOL_LIMIT_NOTE, POOL_TARGETING } from '@/lib/pools';
 import { sendProxyMessage } from '@/lib/proxy/messages';
 import type { Membership, Target } from '@/lib/types';
 import { Icon } from '../components/Icon';
-import { ExpiryLine, MembershipMeta, PoolTag, UsageLine } from '../components/MembershipCard';
-import { Flag, Glyph, Screen, Spinner, StatusPill, TopBar } from '../components/primitives';
+import { PoolTag } from '../components/MembershipCard';
+import { Flag, Glyph, Screen, Spinner, TopBar } from '../components/primitives';
+import { openExternal, SHIFTER_URLS } from '../links';
 import { defaultTarget, useApp } from '../state/AppState';
 
 export function HomeScreen() {
-  const { activeMembership: m, memberships, connection, push, connect, disconnect, targetFor, settings } = useApp();
+  const { activeMembership: m, memberships, connection, push, connect, disconnect, targetFor } = useApp();
   if (!m) return null;
 
   const target = targetFor(m.id) ?? defaultTarget(m);
@@ -53,8 +54,10 @@ export function HomeScreen() {
           }
         />
       }
-      bodyClassName="px-5 pb-6"
+      bodyClassName="px-5 pb-6 flex flex-col"
     >
+      {/* Hero + location sit centred in the space above the traffic footer. */}
+      <div className="flex-1 flex flex-col justify-center pb-2">
       <ConnectHero
         status={status}
         exitIp={connection.status === 'connected' && connectedHere ? connection.exitIp : undefined}
@@ -63,6 +66,12 @@ export function HomeScreen() {
         needsTarget={!target}
         onToggle={toggle}
         countryCode={targetCountryCode(target)}
+        // A fresh session id pins a new exit IP (residential only; ISP IPs are static).
+        onNewIp={
+          m.type === 'residential' && target
+            ? () => void sendProxyMessage({ type: 'proxy:connect', membershipId: m.id, target })
+            : undefined
+        }
       />
 
       <LocationCard m={m} target={target} onOpen={() => push({ name: 'location' })} />
@@ -73,28 +82,9 @@ export function HomeScreen() {
         </p>
       )}
 
-      <div className="flex items-center gap-2 mt-3.5">
-        {m.type === 'residential' && (
-          <button type="button" className="sf-pill sf-pill-neutral !py-1.5 !px-3 hover:!text-sf-text-primary cursor-pointer" onClick={() => push({ name: 'settings' })}>
-            <Icon name={settings.sessionMode === 'sticky' ? 'clock' : 'shuffle'} size={12} />
-            {settings.sessionMode === 'sticky' ? `Sticky · ${formatDuration(settings.ttlSeconds)}` : 'Rotating IP'}
-          </button>
-        )}
-        {m.type === 'residential' && settings.strict && (
-          <span className="sf-pill sf-pill-neutral !py-1.5 !px-3"><Icon name="lock" size={12} />Strict</span>
-        )}
-        {status === 'connected' && m.type === 'residential' && target && (
-          <button
-            type="button"
-            className="ml-auto sf-pill sf-pill-info !py-1.5 !px-3 cursor-pointer hover:brightness-125"
-            onClick={() => void sendProxyMessage({ type: 'proxy:connect', membershipId: m.id, target })}
-          >
-            <Icon name="refresh" size={12} /> New IP
-          </button>
-        )}
       </div>
 
-      <PlanCard m={m} />
+      <PlanFooter m={m} />
     </Screen>
   );
 }
@@ -109,6 +99,7 @@ function ConnectHero({
   needsTarget,
   onToggle,
   countryCode,
+  onNewIp,
 }: {
   status: 'disconnected' | 'connecting' | 'connected' | 'error';
   exitIp?: string;
@@ -117,6 +108,7 @@ function ConnectHero({
   needsTarget: boolean;
   onToggle: () => void;
   countryCode?: string;
+  onNewIp?: () => void;
 }) {
   const connected = status === 'connected';
   const connecting = status === 'connecting';
@@ -161,6 +153,17 @@ function ConnectHero({
               <Flag code={countryCode} className="!w-4 !h-[11px]" />
               <span className="sf-mono text-sf-text-secondary">{exitIp}</span>
               {since && <Uptime since={since} />}
+              {onNewIp && (
+                <button
+                  type="button"
+                  onClick={onNewIp}
+                  className="ml-0.5 grid place-items-center w-6 h-6 rounded-md text-sf-text-muted hover:text-sf-accent-light hover:bg-white/5"
+                  aria-label="Get a new IP"
+                  title="New IP"
+                >
+                  <Icon name="refresh" size={13} />
+                </button>
+              )}
             </>
           )}
           {connecting && 'Securing your route through Shifter'}
@@ -229,17 +232,47 @@ function LocationCard({ m, target, onOpen }: { m: Membership; target?: Target; o
   );
 }
 
-function PlanCard({ m }: { m: Membership }) {
+/**
+ * Minimal plan footer, no card: just what's left to use. Pinned to the
+ * bottom of the screen. Expired plans show the renew link instead.
+ */
+function PlanFooter({ m }: { m: Membership }) {
+  if (m.status === 'expired' || m.status === 'suspended') {
+    return (
+      <footer className="mt-auto pt-8 flex items-center justify-between text-[12.5px]">
+        <span className="text-[#fca5a5]">
+          {m.status === 'expired' ? 'Expired' : 'Suspended'} <span className="text-sf-text-muted">· {formatDate(m.expiresAt)}</span>
+        </span>
+        <button type="button" className="sf-link-btn text-[12.5px] inline-flex items-center gap-1" onClick={() => openExternal(SHIFTER_URLS.renew(m.id))}>
+          Renew <Icon name="external" size={12} />
+        </button>
+      </footer>
+    );
+  }
+
+  if (m.type === 'isp') {
+    return (
+      <footer className="mt-auto pt-8 flex items-baseline justify-between text-[12.5px]">
+        <span className="text-sf-text-tertiary">Bandwidth</span>
+        <span className="sf-mono text-sf-text-secondary">Unlimited</span>
+      </footer>
+    );
+  }
+
+  const { left, ratio } = trafficLeft(m);
+  const tone = ratio <= 0.1 ? 'danger' : ratio <= 0.25 ? 'warning' : '';
   return (
-    <section className="sf-card !p-5 mt-6 flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <MembershipMeta m={m} />
-        {m.status !== 'active' && <StatusPill status={m.status} />}
+    <footer className="mt-auto pt-8">
+      <div className="flex items-baseline justify-between text-[12.5px]">
+        <span className="text-sf-text-tertiary">Traffic left</span>
+        <span className="sf-mono">
+          <span className="text-sf-text-primary font-medium">{formatBytes(left)}</span>
+          <span className="text-sf-text-muted"> / {formatBytes(m.trafficTotalBytes, 0)}</span>
+        </span>
       </div>
-      <UsageLine m={m} />
-      <div className="text-[12px]">
-        <ExpiryLine m={m} />
+      <div className="mt-2 h-[3px] rounded-full bg-sf-bar-track overflow-hidden">
+        <div className={`sf-progress-fill ${tone}`} style={{ width: `${Math.max(0, Math.min(1, ratio)) * 100}%` }} />
       </div>
-    </section>
+    </footer>
   );
 }
