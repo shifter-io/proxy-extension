@@ -5,6 +5,13 @@
   if (new URLSearchParams(location.search).has('reset')) {
     Object.keys(localStorage).filter((k) => k.startsWith('ext:')).forEach((k) => localStorage.removeItem(k));
   }
+  // ?demo[=<membershipId>] opens signed in with the mock demo key, straight on
+  // Connect (default: the Residential plan). Handy for headless screenshots.
+  const demo = new URLSearchParams(location.search).get('demo');
+  if (demo !== null) {
+    localStorage.setItem('ext:session', JSON.stringify({ user: { id: 'u_mock', email: 'demo@example.invalid' }, apiKey: 'demo0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUV', createdAt: new Date().toISOString() }));
+    localStorage.setItem('ext:activeMembership', JSON.stringify(demo || 'm_res_1'));
+  }
   const listeners = new Set();
   const read = (k) => {
     const raw = localStorage.getItem('ext:' + k);

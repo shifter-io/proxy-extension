@@ -22,7 +22,7 @@ npm run build          # .output/chrome-mv3
 npm run zip            # store-ready zip
 npm run compile        # typecheck
 npm run icons          # regenerate public/icon/* from src/assets/shifter-app-icon.svg
-npm run preview:ui     # after build: popup in a normal tab at http://localhost:4178/popup.html (?reset clears state)
+npm run preview:ui     # after build: popup in a normal tab at http://localhost:4178/popup.html (?reset clears state, ?demo opens signed in)
 ```
 
 ### Mock scenarios (chosen by the API key's prefix)

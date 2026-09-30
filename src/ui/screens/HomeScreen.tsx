@@ -52,7 +52,7 @@ export function HomeScreen() {
           }
         />
       }
-      bodyClassName="px-4 pb-4"
+      bodyClassName="px-5 pb-6"
     >
       <ConnectHero
         status={status}
@@ -66,7 +66,7 @@ export function HomeScreen() {
 
       <LocationCard m={m} target={target} onOpen={() => push({ name: 'location' })} />
 
-      <div className="flex items-center gap-2 mt-2.5">
+      <div className="flex items-center gap-2 mt-3.5">
         {m.type === 'residential' && (
           <button type="button" className="sf-pill sf-pill-neutral !py-1.5 !px-3 hover:!text-sf-text-primary cursor-pointer" onClick={() => push({ name: 'settings' })}>
             <Icon name={settings.sessionMode === 'sticky' ? 'clock' : 'shuffle'} size={12} />
@@ -115,12 +115,12 @@ function ConnectHero({
   const connecting = status === 'connecting';
 
   return (
-    <section className="flex flex-col items-center pt-6 pb-5">
+    <section className="flex flex-col items-center pt-10 pb-9">
       <button
         type="button"
         onClick={onToggle}
         aria-label={connected || connecting ? 'Disconnect' : 'Connect'}
-        className="relative w-[112px] h-[112px] rounded-full grid place-items-center cursor-pointer transition-transform active:scale-[0.97]"
+        className="relative w-[124px] h-[124px] rounded-full grid place-items-center cursor-pointer transition-transform active:scale-[0.97]"
         style={{
           background: connected
             ? 'radial-gradient(circle at 50% 35%, rgba(61,186,120,0.30), rgba(61,186,120,0.08) 70%)'
@@ -140,15 +140,15 @@ function ConnectHero({
         {connecting ? (
           <Spinner size={40} />
         ) : (
-          <Icon name="power" size={38} strokeWidth={2} className={connected ? 'text-[#62d399]' : 'text-sf-accent-light'} />
+          <Icon name="power" size={42} strokeWidth={2} className={connected ? 'text-[#62d399]' : 'text-sf-accent-light'} />
         )}
       </button>
 
-      <div className="mt-4 text-center">
+      <div className="mt-6 text-center">
         <div className={`text-[17px] font-semibold ${connected ? 'text-[#62d399]' : ''}`} style={{ letterSpacing: '-0.02em' }}>
           {connected ? 'Connected' : connecting ? 'Connecting…' : status === 'error' ? 'Connection failed' : 'Not connected'}
         </div>
-        <div className="mt-1 h-[18px] text-[12.5px] text-sf-text-tertiary flex items-center justify-center gap-1.5">
+        <div className="mt-1.5 h-[18px] text-[12.5px] text-sf-text-tertiary flex items-center justify-center gap-1.5">
           {connected && exitIp && (
             <>
               <Flag code={countryCode} className="!w-4 !h-[11px]" />
@@ -193,7 +193,7 @@ function LocationCard({ m, target, onOpen }: { m: Membership; target?: Target; o
       type="button"
       disabled={locked}
       onClick={onOpen}
-      className="sf-card sf-card-interactive sf-accent-edge w-full !p-3.5 flex items-center gap-3 text-left disabled:cursor-default disabled:hover:bg-sf-bg-card"
+      className="sf-card sf-card-interactive sf-accent-edge w-full !p-4 flex items-center gap-3.5 text-left disabled:cursor-default disabled:hover:bg-sf-bg-card"
     >
       <span className="w-10 h-10 rounded-[10px] grid place-items-center bg-white/[0.03] border border-sf-border-subtle shrink-0">
         {m.type === 'isp' && !target ? (
@@ -222,7 +222,7 @@ function LocationCard({ m, target, onOpen }: { m: Membership; target?: Target; o
 
 function PlanCard({ m }: { m: Membership }) {
   return (
-    <section className="sf-card mt-4 flex flex-col gap-3">
+    <section className="sf-card !p-5 mt-6 flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <MembershipMeta m={m} />
         {m.status !== 'active' && <StatusPill status={m.status} />}
