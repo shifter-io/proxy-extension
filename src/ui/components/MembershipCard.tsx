@@ -77,7 +77,7 @@ export function MembershipCard({ m, onSelect, onRenew }: { m: Membership; onSele
 
       <UsageLine m={m} />
 
-      <div className="flex items-center justify-between text-[12px] pt-2.5 border-t border-sf-border-subtle">
+      <div className="flex items-center justify-center gap-3 text-center text-[12px] pt-2.5 border-t border-sf-border-subtle">
         <ExpiryLine m={m} />
         {!usable && (
           <button
