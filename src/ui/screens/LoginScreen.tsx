@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { Icon } from '../components/Icon';
 import { Screen, Spinner, Wordmark } from '../components/primitives';
@@ -22,6 +22,13 @@ export function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Chrome often ignores autoFocus in action popups (the window gets focus
+  // after first paint), so focus again once the popup has settled.
+  useEffect(() => {
+    const t = setTimeout(() => inputRef.current?.focus(), 60);
+    return () => clearTimeout(t);
+  }, []);
 
   async function verify(raw: string) {
     const value = raw.trim();
@@ -69,7 +76,7 @@ export function LoginScreen() {
   const busy = phase !== 'idle';
 
   return (
-    <Screen atmosphere="default" bodyClassName="flex flex-col">
+    <Screen atmosphere="default" surface="card" bodyClassName="flex flex-col">
       <div className="flex-1 flex flex-col px-6 pt-7 pb-5">
         <Wordmark height={26} />
 

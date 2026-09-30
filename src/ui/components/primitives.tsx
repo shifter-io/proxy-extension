@@ -46,7 +46,10 @@ export function Screen({
   children,
   bodyClassName = '',
   atmosphere,
+  surface = 'page',
 }: {
+  /** 'card' paints the screen like .sf-auth-card so inputs read darker, as on shifter.io/login. */
+  surface?: 'page' | 'card';
   header?: ReactNode;
   footer?: ReactNode;
   children: ReactNode;
@@ -54,7 +57,7 @@ export function Screen({
   atmosphere?: 'default' | 'connected';
 }) {
   return (
-    <div className="absolute inset-0 flex flex-col bg-sf-bg-deepest">
+    <div className={`absolute inset-0 flex flex-col ${surface === 'card' ? 'bg-sf-bg-elevated' : 'bg-sf-bg-deepest'}`}>
       {atmosphere && (
         <div className={`sf-atmosphere ${atmosphere === 'connected' ? 'sf-atmosphere--connected' : ''}`} aria-hidden>
           <span className="sf-atmosphere__halo" />
