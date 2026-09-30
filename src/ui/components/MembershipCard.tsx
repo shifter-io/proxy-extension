@@ -17,7 +17,8 @@ export function MembershipMeta({ m }: { m: Membership }) {
           {m.countries.map((c) => (
             <Flag key={c} code={c} className="!w-4 !h-[11px]" />
           ))}
-          <span className="ml-0.5">{m.ipCount} IPs</span>
+          {/* The IP count is already in the plan title ("25 ISP Proxies"). */}
+          <span className="ml-0.5">{m.countries.map((c) => c.toUpperCase()).join(' · ')}</span>
         </span>
       )}
     </div>

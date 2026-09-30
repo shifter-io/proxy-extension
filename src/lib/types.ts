@@ -33,7 +33,11 @@ export type MembershipStatus = 'active' | 'expiring' | 'expired' | 'suspended';
 interface MembershipBase {
   id: string;
   type: ProductType;
-  /** Product title as shown in the panel, e.g. "Residential Proxies · Pro 50 GB". */
+  /**
+   * Plan title exactly as the API returns it: "Spark", "Starter", "Pro" for
+   * Residential; "25 ISP Proxies", "50 ISP Proxies", "100 ISP Proxies" for ISP.
+   * Shown verbatim; the product type is shown separately as a badge.
+   */
   planName: string;
   status: MembershipStatus;
   /** ISO date. */

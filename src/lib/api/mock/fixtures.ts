@@ -10,7 +10,7 @@ export const MEMBERSHIPS: Membership[] = [
   {
     id: 'm_res_1',
     type: 'residential',
-    planName: 'Residential Proxies · Pro',
+    planName: 'Pro',
     pool: 'full',
     status: 'active',
     expiresAt: days(23),
@@ -21,7 +21,7 @@ export const MEMBERSHIPS: Membership[] = [
   {
     id: 'm_isp_us',
     type: 'isp',
-    planName: 'ISP Proxies · US 25',
+    planName: '25 ISP Proxies',
     status: 'active',
     expiresAt: days(11),
     autoRenew: true,
@@ -31,17 +31,17 @@ export const MEMBERSHIPS: Membership[] = [
   {
     id: 'm_isp_eu',
     type: 'isp',
-    planName: 'ISP Proxies · EU Mix 10',
+    planName: '50 ISP Proxies',
     status: 'expiring',
     expiresAt: days(2),
     autoRenew: false,
-    ipCount: 10,
+    ipCount: 50,
     countries: ['de', 'gb', 'nl'],
   },
   {
     id: 'm_res_country',
     type: 'residential',
-    planName: 'Country Geo Starter',
+    planName: 'Starter',
     pool: 'country',
     status: 'expired',
     expiresAt: days(-6),
@@ -152,8 +152,8 @@ export const ISP_IPS: Record<string, IspIp[]> = {
     ...ips('73.162.9', 'us', 'Miami', 'Spectrum', 4, 200),
   ],
   m_isp_eu: [
-    ...ips('91.64.18', 'de', 'Frankfurt', 'Deutsche Telekom', 4, 30),
-    ...ips('86.14.201', 'gb', 'London', 'Virgin Media', 4, 60),
-    ...ips('145.53.8', 'nl', 'Amsterdam', 'KPN', 2, 90),
+    ...ips('91.64.18', 'de', 'Frankfurt', 'Deutsche Telekom', 20, 30),
+    ...ips('86.14.201', 'gb', 'London', 'Virgin Media', 20, 60),
+    ...ips('145.53.8', 'nl', 'Amsterdam', 'KPN', 10, 90),
   ],
 };
