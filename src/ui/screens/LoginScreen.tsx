@@ -85,12 +85,12 @@ export function LoginScreen() {
           <h1 className="mt-4 text-[22px] leading-tight font-semibold" style={{ letterSpacing: '-0.025em' }}>
             Connect your Shifter account
           </h1>
-          <p className="mt-2 text-[13px] leading-relaxed text-sf-text-tertiary">
+          <p className="mt-2.5 text-[13px] leading-relaxed text-sf-text-tertiary">
             Paste your API key to load your Residential and ISP plans.
           </p>
         </div>
 
-        <form onSubmit={submit} noValidate className="mt-6">
+        <form onSubmit={submit} noValidate className="mt-7">
           <div className="relative">
             <input
               ref={inputRef}
@@ -171,7 +171,7 @@ export function LoginScreen() {
           </button>
         </form>
 
-        <div className="flex items-center gap-3 my-5">
+        <div className="flex items-center gap-3 mt-10 mb-6">
           <span className="flex-1 h-px bg-sf-border-subtle" />
           <span className="text-[10.5px] tracking-[0.18em] uppercase text-sf-text-muted">New to Shifter?</span>
           <span className="flex-1 h-px bg-sf-border-subtle" />
@@ -181,7 +181,7 @@ export function LoginScreen() {
           <span>Create a free account</span>
           <Icon name="external" size={14} className="text-sf-text-tertiary" />
         </button>
-        <p className="mt-2.5 text-center text-[12px] leading-relaxed text-sf-text-muted">
+        <p className="mt-3 text-center text-[12px] leading-relaxed text-sf-text-muted">
           Sign up, then copy your key from Profile → API Key.
         </p>
 
