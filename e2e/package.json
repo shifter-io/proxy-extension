@@ -1,0 +1,14 @@
+{
+  "name": "shifter-extension-e2e",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end tests for the Shifter extension (Chrome for Testing + Firefox).",
+  "scripts": {
+    "setup": "puppeteer browsers install chrome && puppeteer browsers install firefox",
+    "postinstall": "npm run setup",
+    "test": "node run.mjs"
+  },
+  "dependencies": {
+    "puppeteer": "^25.12.0"
+  }
+}

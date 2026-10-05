@@ -1,4 +1,6 @@
 import { storage } from '#imports';
+import { PRIVATE_RANGES } from './proxy/bypass';
+import type { ProxyEndpoint } from './proxy/controller';
 import type { ConnectionState, ProxySettings, Session, Target } from './types';
 
 /**
@@ -11,7 +13,8 @@ export const DEFAULT_SETTINGS: ProxySettings = {
   sessionMode: 'sticky',
   ttlSeconds: 600,
   strict: false,
-  bypassList: ['localhost', '127.0.0.1', '*.local'],
+  entryPoint: null,
+  bypassList: ['localhost', '127.0.0.1', '*.local', ...PRIVATE_RANGES],
   webrtcProtection: true,
 };
 
@@ -22,6 +25,22 @@ export const sessionItem = storage.defineItem<Session | null>('local:session', {
 export const settingsItem = storage.defineItem<ProxySettings>('local:settings', {
   fallback: DEFAULT_SETTINGS,
 });
+
+/** Stored settings filled up with defaults for fields added later. */
+export function withDefaults(settings: Partial<ProxySettings> | null | undefined): ProxySettings {
+  return { ...DEFAULT_SETTINGS, ...settings };
+}
+
+/**
+ * The proxy currently applied, including its gateway login. Read by the
+ * background worker's onAuthRequired / proxy.onRequest handlers, which may
+ * run after a service-worker restart. Never rendered, never logged; cleared
+ * on disconnect and sign-out.
+ */
+export const activeProxyItem = storage.defineItem<ProxyEndpoint | null>('local:activeProxy', {
+  fallback: null,
+});
+
 
 /** Membership the user last worked with, restored when the popup reopens. */
 export const activeMembershipItem = storage.defineItem<string | null>('local:activeMembership', {

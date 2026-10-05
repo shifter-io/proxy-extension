@@ -45,6 +45,10 @@
     --sf-popup-h: 600px;
   }
 
+  html {
+    color-scheme: dark;
+  }
+
   html, body {
     margin: 0;
     background: var(--sf-bg-deepest);

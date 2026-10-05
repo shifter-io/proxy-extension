@@ -11,7 +11,8 @@ import type {
   User,
 } from '../../types';
 import { ApiError, type ShifterApi } from '../types';
-import { ASNS, CITIES, COUNTRIES, ISP_IPS, MEMBERSHIPS, REGIONS } from './fixtures';
+import { geoCatalog } from '../../geo/catalog';
+import { ENTRY_POINTS, ISP_IPS, MEMBERSHIPS } from './fixtures';
 
 const delay = (ms = 350) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -66,57 +67,25 @@ export class MockShifterApi implements ShifterApi {
     return MEMBERSHIPS;
   }
 
-  async countries(): Promise<GeoCountry[]> {
-    await delay(200);
-    return COUNTRIES;
+  // Same bundled catalog as the live API.
+  countries(): Promise<GeoCountry[]> {
+    return geoCatalog.countries();
   }
 
-  async regions(country: string): Promise<GeoRegion[]> {
-    await delay(200);
-    return REGIONS[country] ?? [];
+  regions(country: string): Promise<GeoRegion[]> {
+    return geoCatalog.regions(country);
   }
 
-  async cities(country: string, region?: string): Promise<GeoCity[]> {
-    await delay(200);
-    const all = CITIES[country] ?? [];
-    return region ? all.filter((c) => c.regionSlug === region) : all;
+  cities(country: string, region?: string): Promise<GeoCity[]> {
+    return geoCatalog.cities(country, region);
   }
 
-  async asns(country: string): Promise<GeoAsn[]> {
-    await delay(200);
-    return ASNS[country] ?? [];
+  asns(country: string, city?: GeoCity): Promise<GeoAsn[]> {
+    return geoCatalog.asns(country, city);
   }
 
-  async searchGeo(query: string): Promise<GeoSearchResult[]> {
-    await delay(150);
-    const q = query.trim().toLowerCase().replace(/^as(?=\d)/, '');
-    if (!q) return [];
-    const hit = (s: string) => s.toLowerCase().includes(q);
-    const byCode = new Map(COUNTRIES.map((c) => [c.code, c]));
-    const out: GeoSearchResult[] = [];
-
-    for (const country of COUNTRIES) {
-      if (hit(country.name) || country.code === q) out.push({ kind: 'country', country });
-    }
-    for (const [code, regions] of Object.entries(REGIONS)) {
-      const country = byCode.get(code)!;
-      for (const region of regions) if (hit(region.name)) out.push({ kind: 'region', country, region });
-    }
-    for (const [code, cities] of Object.entries(CITIES)) {
-      const country = byCode.get(code)!;
-      for (const city of cities) {
-        if (!hit(city.name)) continue;
-        const region = REGIONS[code]?.find((r) => r.slug === city.regionSlug);
-        out.push({ kind: 'city', country, region, city });
-      }
-    }
-    for (const [code, asns] of Object.entries(ASNS)) {
-      const country = byCode.get(code)!;
-      for (const asn of asns) {
-        if (hit(asn.name) || String(asn.asn).startsWith(q)) out.push({ kind: 'asn', country, asn });
-      }
-    }
-    return out.slice(0, 40);
+  searchGeo(query: string): Promise<GeoSearchResult[]> {
+    return geoCatalog.search(query);
   }
 
   async ispIps(membershipId: string): Promise<IspIp[]> {
@@ -126,17 +95,21 @@ export class MockShifterApi implements ShifterApi {
 
   async credentials(membershipId: string): Promise<ProxyCredentials> {
     await delay(200);
+    const isp = membershipId.startsWith('m_isp');
     return {
-      host: 'p.shifter.io',
+      type: isp ? 'isp' : 'residential',
+      host: isp ? 'isp.shifter.io' : 'p.shifter.io',
       port: 443,
-      username: `mock-${membershipId}`,
+      username: isp ? '' : `customer-mock-${membershipId}`,
       password: 'mock-password',
+      entryPoints: isp ? [] : ENTRY_POINTS,
+      stickySessions: !isp,
     };
   }
 
   private user(): User {
     const email = this.scenario ? `${this.scenario}@example.invalid` : 'demo@example.invalid';
-    return { id: 'u_mock', email, name: 'Demo User' };
+    return { id: 'u_mock', email, name: 'Demo User', username: 'demo', walletBalance: 440.5, currency: 'USD' };
   }
 }
 

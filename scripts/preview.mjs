@@ -1,11 +1,13 @@
-// Serves the built popup in a normal tab (UI review / screenshots):
-//   npm run build && npm run preview:ui  →  http://localhost:4178/popup.html
+// Serves the mock popup in a normal tab (UI review / screenshots):
+//   npm run preview:ui  →  builds to build-mock/, serves http://localhost:4178/popup.html
+// Always the mock build: a normal page can't call the Shifter API (no CORS
+// headers); only the installed extension can, via host_permissions.
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = fileURLToPath(new URL('../.output/chrome-mv3/', import.meta.url));
+const root = fileURLToPath(new URL('../build-mock/chrome-mv3/', import.meta.url));
 const shim = await readFile(fileURLToPath(new URL('./preview-shim.js', import.meta.url)), 'utf8');
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.json': 'application/json' };
 const port = Number(process.env.PORT ?? 4178);

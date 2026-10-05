@@ -29,12 +29,13 @@ export interface ShifterApi {
   me(): Promise<User>;
   memberships(): Promise<Membership[]>;
 
-  // Residential geo catalog (panel: ResidentialGeoController)
+  // Residential locations (bundled catalog built from the gateway inventory, lib/geo)
   countries(): Promise<GeoCountry[]>;
   regions(country: string): Promise<GeoRegion[]>;
   cities(country: string, region?: string): Promise<GeoCity[]>;
-  asns(country: string): Promise<GeoAsn[]>;
-  /** Search countries, regions, cities and ASNs in one go (VPN-style search box). */
+  /** ISPs in the country, or only those with enough IPs in `city`. */
+  asns(country: string, city?: GeoCity): Promise<GeoAsn[]>;
+  /** Search countries, states, cities, ISPs and city+ISP combinations in one go. */
   searchGeo(query: string): Promise<GeoSearchResult[]>;
 
   // ISP
@@ -47,7 +48,7 @@ export interface ShifterApi {
 export class ApiError extends Error {
   constructor(
     message: string,
-    public readonly code: 'unauthorized' | 'network' | 'server' | 'validation' = 'server',
+    public readonly code: 'unauthorized' | 'rate_limited' | 'network' | 'server' | 'validation' = 'server',
   ) {
     super(message);
     this.name = 'ApiError';

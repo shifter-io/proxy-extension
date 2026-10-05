@@ -1,5 +1,9 @@
 node_modules
 .output
+build
+build-mock
+build-test
+build-test-live
 .wxt
 dist
 *.log

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { isUsable, sameTarget } from '@/lib/format';
 import { clampTarget } from '@/lib/pools';
 import { sendProxyMessage } from '@/lib/proxy/messages';
@@ -10,6 +10,7 @@ import {
   sessionItem,
   settingsItem,
   targetsItem,
+  withDefaults,
 } from '@/lib/storage';
 import type { ConnectionState, Membership, ProxySettings, Session, Target } from '@/lib/types';
 import { useStorageItem } from '../hooks/useStorageItem';
@@ -72,7 +73,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [activeId, setActiveId, activeReady] = useStorageItem(activeMembershipItem);
   const [targets, setTargets] = useStorageItem(targetsItem);
   const [recentTargets, setRecentTargets] = useStorageItem(recentTargetsItem);
-  const [settings, setSettings] = useStorageItem(settingsItem);
+  const [storedSettings, setSettings] = useStorageItem(settingsItem);
+  const settings = useMemo(() => withDefaults(storedSettings), [storedSettings]);
   const [connection] = useStorageItem(connectionItem);
 
   const [memberships, setMemberships] = useState<Membership[] | null>(null);
@@ -91,17 +93,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setStack([route]);
   }, []);
 
+  /** The key was revoked or regenerated: back to sign-in (the worker clears the proxy). */
+  const expireSession = useCallback(async () => {
+    api.useSession(null);
+    await Promise.all([setSession(null), setActiveId(null)]);
+    setMemberships(null);
+    reset({ name: 'login' });
+  }, [reset, setActiveId, setSession]);
+
   const reloadMemberships = useCallback(async () => {
     setMembershipsError(null);
     try {
       const list = await api.memberships();
       setMemberships(list);
       return list;
-    } catch {
-      setMembershipsError('Could not load your memberships.');
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'unauthorized') {
+        await expireSession();
+        return [];
+      }
+      setMembershipsError(
+        err instanceof ApiError && (err.code === 'network' || err.code === 'rate_limited')
+          ? err.message
+          : 'Could not load your memberships.',
+      );
       return [];
     }
-  }, []);
+  }, [expireSession]);
 
   /** Decide the first screen after sign-in / popup open. */
   const routeAfterAuth = useCallback(
@@ -128,7 +146,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!session?.apiKey) return reset({ name: 'login' });
     api.useSession(session);
     void routeAfterAuth(activeId);
+    // Refresh name and wallet balance once per popup open.
+    api.me().then(
+      (user) => void setSession({ ...session, user }),
+      () => undefined,
+    );
   }, [sessionReady, activeReady]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Signed out elsewhere (a 401 in the worker, another popup): leave the app.
+  useEffect(() => {
+    if (sessionReady && !session && stack[0]?.name !== 'boot' && stack[0]?.name !== 'login') {
+      api.useSession(null);
+      setMemberships(null);
+      reset({ name: 'login' });
+    }
+  }, [session, sessionReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const signIn = useCallback(
     async (next: Session) => {

@@ -2,19 +2,23 @@
   "name": "shifter-proxy-extension",
   "description": "Shifter browser extension: browse through your Shifter Residential & ISP proxies.",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",
+    "dev:mock": "WXT_USE_MOCK=true wxt",
     "build": "wxt build",
     "build:firefox": "wxt build -b firefox",
+    "build:mock": "WXT_USE_MOCK=true wxt build",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "compile": "tsc --noEmit",
     "icons": "node scripts/build-icons.mjs",
     "postinstall": "wxt prepare",
-    "preview:ui": "node scripts/preview.mjs"
+    "preview:ui": "WXT_USE_MOCK=true wxt build && node scripts/preview.mjs",
+    "geo:catalog": "node scripts/build-geo-catalog.mjs",
+    "e2e": "cd e2e && npm test --"
   },
   "dependencies": {
     "react": "^19.3.0",

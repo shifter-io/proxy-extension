@@ -42,44 +42,51 @@ export function RenewalLine({ m, onRenew, className = '' }: { m: Membership; onR
             onRenew();
           }}
         >
-          Renew <Icon name="external" size={12} />
+          {m.status === 'expired' ? 'Renew' : 'Open in panel'} <Icon name="external" size={12} />
         </button>
       )}
     </div>
   );
 }
 
+/** Doc rule: "Renews <renews_at>" when set, otherwise "Expires <expires_at>"; trials say when they end. */
 export function ExpiryLine({ m }: { m: Membership }) {
   if (m.status === 'expired') return <span className="text-[#fca5a5]">Expired {formatDate(m.expiresAt)}</span>;
-  const verb = m.autoRenew ? 'Renews' : 'Expires';
+  const [verb, date] = m.trialEndsAt
+    ? ['Trial ends', m.trialEndsAt]
+    : m.renewsAt
+      ? ['Renews', m.renewsAt]
+      : ['Expires', m.expiresAt];
   const tone = m.status === 'expiring' ? 'text-[#f0b461]' : 'text-sf-text-tertiary';
   return (
     <span className={tone}>
-      {verb} {relativeDays(m.expiresAt)} <span className="text-sf-text-muted">· {formatDate(m.expiresAt)}</span>
+      {verb} {relativeDays(date)} <span className="text-sf-text-muted">· {formatDate(date)}</span>
     </span>
   );
 }
 
 export function UsageLine({ m }: { m: Membership }) {
-  if (m.type === 'isp') {
+  const usage = m.type === 'residential' ? trafficLeft(m) : null;
+  // No usage data yet (plan not live): show nothing rather than "Unlimited".
+  if (!usage && m.type === 'residential' && !m.unmetered) return null;
+  if (!usage) {
     return (
       <div className="flex items-center justify-between text-[12px]">
-        <span className="text-sf-text-tertiary">Bandwidth</span>
+        <span className="text-sf-text-tertiary">{m.type === 'isp' ? 'Bandwidth' : 'Traffic'}</span>
         <span className="sf-mono text-sf-text-secondary">Unlimited</span>
       </div>
     );
   }
-  const { left, ratio } = trafficLeft(m);
   return (
     <div>
       <div className="flex items-baseline justify-between text-[12px] mb-1.5">
         <span className="text-sf-text-tertiary">Traffic left</span>
         <span className="sf-mono">
-          <span className="text-sf-text-primary font-medium">{formatBytes(left)}</span>
-          <span className="text-sf-text-muted"> / {formatBytes(m.trafficTotalBytes, 0)}</span>
+          <span className="text-sf-text-primary font-medium">{formatBytes(usage.left)}</span>
+          <span className="text-sf-text-muted"> / {formatBytes(usage.total, 0)}</span>
         </span>
       </div>
-      <ProgressBar ratio={ratio} />
+      <ProgressBar ratio={usage.ratio} />
     </div>
   );
 }
@@ -101,7 +108,7 @@ export function MembershipCard({ m, onSelect, onRenew }: { m: Membership; onSele
           <PoolTag m={m} />
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          {m.status !== 'active' && <StatusPill status={m.status} />}
+          {m.status !== 'active' && <StatusPill status={m.status} label={m.status === 'suspended' ? m.statusLabel : undefined} />}
           <MembershipMeta m={m} />
         </div>
       </div>

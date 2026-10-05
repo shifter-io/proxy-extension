@@ -11,6 +11,13 @@ import { defaultTarget, useApp } from '../state/AppState';
 
 export function HomeScreen() {
   const { activeMembership: m, memberships, connection, push, connect, disconnect, targetFor, settings } = useApp();
+
+  // Fresh exit IP as soon as the popup opens; the worker re-checks every 15 s after that.
+  const isConnected = connection.status === 'connected';
+  useEffect(() => {
+    if (isConnected) void sendProxyMessage({ type: 'proxy:check' }).catch(() => undefined);
+  }, [isConnected]);
+
   if (!m) return null;
 
   const target = targetFor(m.id) ?? defaultTarget(m);
@@ -65,7 +72,7 @@ export function HomeScreen() {
         error={connection.status === 'error' ? connection.message : undefined}
         needsTarget={!target}
         onToggle={toggle}
-        countryCode={targetCountryCode(target)}
+        countryCode={(connection.status === 'connected' && connectedHere && connection.exitCountry) || targetCountryCode(target)}
         // A fresh session id pins a new exit IP (residential only; ISP IPs are static).
         onNewIp={
           m.type === 'residential' && target
@@ -74,6 +81,11 @@ export function HomeScreen() {
         }
       />
 
+      {connection.status === 'connected' && connectedHere && connection.loginStale && (
+        <p className="-mt-4 mb-4 px-1 text-center text-[12px] leading-relaxed text-[#f0b461]">
+          Restart Firefox to fully apply this change: sites you already opened may keep the previous location.
+        </p>
+      )}
       <LocationCard m={m} target={target} onOpen={() => push({ name: 'location' })} />
       {m.type === 'residential' && !POOL_TARGETING[m.pool].country && (
         <p className="mt-2.5 px-1 flex gap-2 text-[12px] leading-relaxed text-sf-text-muted">
@@ -83,7 +95,7 @@ export function HomeScreen() {
       )}
 
       <StatsCard m={m} settings={settings} onSession={() => push({ name: 'settings' })} />
-      <RenewalLine m={m} onRenew={() => openExternal(SHIFTER_URLS.renew(m.id))} className="mt-4" />
+      <RenewalLine m={m} onRenew={() => openExternal(SHIFTER_URLS.renew(m))} className="mt-4" />
       </div>
     </Screen>
   );
@@ -218,7 +230,7 @@ function LocationCard({ m, target, onOpen }: { m: Membership; target?: Target; o
       </span>
       <span className="flex-1 min-w-0">
         <span className="block sf-label !text-[10px] mb-1">{m.type === 'isp' ? 'Static IP' : 'Location'}</span>
-        <span className={`block truncate text-[14px] font-semibold ${target?.kind === 'isp' ? 'sf-mono' : ''}`}>{title}</span>
+        <span className="block truncate text-[14px] font-semibold">{title}</span>
         <span className="block truncate text-[12px] text-sf-text-tertiary mt-0.5">{subtitle}</span>
       </span>
       {locked ? (
@@ -243,6 +255,8 @@ function StatsCard({ m, settings, onSession }: { m: Membership; settings: ProxyS
       <UsageStat m={m} />
       {m.type === 'isp' ? (
         <Stat label="IP" value="Static" sub="Same IP every time" />
+      ) : !m.stickySessions ? (
+        <Stat label="Session" value="Rotating" sub="New IP per request" />
       ) : (
         <button
           type="button"
@@ -265,20 +279,27 @@ function StatsCard({ m, settings, onSession }: { m: Membership; settings: ProxyS
 function UsageStat({ m }: { m: Membership }) {
   if (m.type === 'isp') return <Stat label="Bandwidth" value="Unlimited" sub="No traffic cap" />;
 
-  const { left, ratio } = trafficLeft(m);
-  const tone = ratio <= 0.1 ? 'danger' : ratio <= 0.25 ? 'warning' : '';
+  const usage = trafficLeft(m);
+  if (!usage) {
+    return m.unmetered ? (
+      <Stat label="Traffic" value="Unlimited" sub="No traffic cap" />
+    ) : (
+      <Stat label="Traffic" value="—" sub="Not available yet" />
+    );
+  }
+  const tone = usage.ratio <= 0.1 ? 'danger' : usage.ratio <= 0.25 ? 'warning' : '';
   return (
     <Stat
       label="Traffic left"
       value={
         <>
-          {formatBytes(left)}
-          <span className="text-[12px] font-normal text-sf-text-muted"> / {formatBytes(m.trafficTotalBytes, 0)}</span>
+          {formatBytes(usage.left)}
+          <span className="text-[12px] font-normal text-sf-text-muted"> / {formatBytes(usage.total, 0)}</span>
         </>
       }
       sub={
         <span className="block h-[3px] mt-1 rounded-full bg-sf-bar-track overflow-hidden">
-          <span className={`block sf-progress-fill ${tone}`} style={{ width: `${Math.max(0, Math.min(1, ratio)) * 100}%` }} />
+          <span className={`block sf-progress-fill ${tone}`} style={{ width: `${Math.max(0, Math.min(1, usage.ratio)) * 100}%` }} />
         </span>
       }
     />

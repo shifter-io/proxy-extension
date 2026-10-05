@@ -75,7 +75,7 @@ export function ResidentialPicker({ m }: { m: ResidentialMembership }) {
                 view.level === 'countries'
                   ? countryOnly
                     ? 'Search countries'
-                    : 'Search country, state, city or ASN'
+                    : 'Search country, state, city or ISP'
                   : view.level === 'country'
                     ? `Search in ${view.country.name}`
                     : `Search cities in ${view.region.name}`
@@ -243,7 +243,7 @@ function SearchHitRow({ hit, onClick }: { hit: GeoSearchResult; onClick: () => v
     hit.kind === 'asn' ? hit.asn!.name : hit.kind === 'city' ? hit.city!.name : hit.kind === 'region' ? hit.region!.name : hit.country.name;
   const subtitle =
     hit.kind === 'asn'
-      ? `AS${hit.asn!.asn} · ${hit.country.name}`
+      ? [`AS${hit.asn!.asn}`, [hit.city?.name, hit.country.name].filter(Boolean).join(', ')].join(' · ')
       : hit.kind === 'city'
         ? [hit.region?.name, hit.country.name].filter(Boolean).join(', ')
         : hit.kind === 'region'
@@ -258,7 +258,7 @@ function SearchHitRow({ hit, onClick }: { hit: GeoSearchResult; onClick: () => v
       trailing={
         <span className="sf-pill sf-pill--xs sf-pill-neutral">
           <Icon name={HIT_META[hit.kind].icon} size={11} />
-          {HIT_META[hit.kind].label}
+          {hit.kind === 'asn' && hit.city ? 'City + ASN' : HIT_META[hit.kind].label}
         </span>
       }
     />
@@ -286,7 +286,9 @@ function CountryView({
 }) {
   const regions = useAsync(() => api.regions(country.code), [country.code]);
   const cities = useAsync(() => api.cities(country.code), [country.code]);
-  const asns = useAsync(() => api.asns(country.code), [country.code]);
+  // With a city picked, only ISPs that have enough IPs in that city.
+  const cityPick = draft.country?.code === country.code ? draft.city : undefined;
+  const asns = useAsync(() => api.asns(country.code, cityPick), [country.code, cityPick?.slug, cityPick?.regionSlug]);
   const q = query.trim().toLowerCase();
   const match = (s: string) => !q || s.toLowerCase().includes(q);
 
@@ -295,7 +297,10 @@ function CountryView({
   const asnList = (asns.data ?? []).filter((a) => match(a.name) || String(a.asn).startsWith(q.replace(/^as/, '')));
   const regionBySlug = useMemo(() => new Map((regions.data ?? []).map((r) => [r.slug, r])), [regions.data]);
 
-  const loading = { regions: regions.loading, cities: cities.loading, asn: asns.loading }[tab];
+  const searching = q.length > 0;
+  const loading = searching
+    ? regions.loading || cities.loading || asns.loading
+    : { regions: regions.loading, cities: cities.loading, asn: asns.loading }[tab];
 
   return (
     <div className="flex flex-col gap-3 pt-1">
@@ -307,22 +312,25 @@ function CountryView({
         onClick={() => setDraft({ kind: 'residential', country, asn: draft.asn })}
       />
 
-      <div className="sf-segmented mx-1">
-        <button className={tab === 'regions' ? 'active' : ''} onClick={() => onTab('regions')}>
-          States <Count n={regions.data?.length} />
-        </button>
-        <button className={tab === 'cities' ? 'active' : ''} onClick={() => onTab('cities')}>
-          Cities <Count n={cities.data?.length} />
-        </button>
-        <button className={tab === 'asn' ? 'active' : ''} onClick={() => onTab('asn')}>
-          ASN <Count n={asns.data?.length} />
-        </button>
-      </div>
+      {!searching && (
+        <div className="sf-segmented mx-1">
+          <button className={tab === 'regions' ? 'active' : ''} onClick={() => onTab('regions')}>
+            States <Count n={regions.data?.length} />
+          </button>
+          <button className={tab === 'cities' ? 'active' : ''} onClick={() => onTab('cities')}>
+            Cities <Count n={cities.data?.length} />
+          </button>
+          <button className={tab === 'asn' ? 'active' : ''} onClick={() => onTab('asn')}>
+            ASN <Count n={asns.data?.length} />
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-col gap-0.5">
         {loading && <RowsSkeleton />}
 
-        {!loading && tab === 'regions' &&
+        {searching && !regions.loading && regionList.length > 0 && <SectionLabel>States</SectionLabel>}
+        {!regions.loading && (searching || tab === 'regions') &&
           (regionList.length ? (
             regionList.map((r) => (
               <Row
@@ -339,10 +347,11 @@ function CountryView({
               />
             ))
           ) : (
-            <NoneHere what="states" />
+            !searching && <NoneHere what="states" />
           ))}
 
-        {!loading && tab === 'cities' &&
+        {searching && !cities.loading && cityList.length > 0 && <SectionLabel>Cities</SectionLabel>}
+        {!cities.loading && (searching || tab === 'cities') &&
           (cityList.length ? (
             cityList.map((c) => (
               <Row
@@ -357,13 +366,14 @@ function CountryView({
               />
             ))
           ) : (
-            <NoneHere what="cities" />
+            !searching && <NoneHere what="cities" />
           ))}
 
-        {!loading && tab === 'asn' && (
+        {!asns.loading && (searching ? asnList.length > 0 : tab === 'asn') && (
           <>
+            {searching && <SectionLabel>ASN</SectionLabel>}
             <p className="px-2 pb-2 text-[12px] leading-relaxed text-sf-text-muted">
-              Pin exits to one carrier. Combines with the state or city you picked.
+              {cityPick ? `ISPs with IPs in ${cityPick.name}.` : 'Pin exits to one carrier. Combines with the state or city you picked.'}
             </p>
             {asnList.length ? (
               asnList.map((a) => {
@@ -383,6 +393,9 @@ function CountryView({
               <NoneHere what="ASNs" />
             )}
           </>
+        )}
+        {searching && !loading && regionList.length === 0 && cityList.length === 0 && asnList.length === 0 && (
+          <EmptyState icon="search" title="No matches" body={`Nothing found for “${query.trim()}”. Try a state, city, ISP or ASN number.`} />
         )}
       </div>
     </div>

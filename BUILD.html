@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shifter extension — build instructions</title>
+<style>
+body{font:16px/1.65 system-ui,sans-serif;max-width:820px;margin:48px auto;padding:0 24px;color:#182238;background:#f7f9fc}h1,h2{line-height:1.25}h1{font-size:32px}h2{margin-top:32px;font-size:22px}pre{background:#172238;color:#eef3ff;padding:20px;border-radius:10px;overflow:auto}code{font-family:ui-monospace,monospace}a{color:#2456ac}.note{border-left:4px solid #5681db;padding:12px 18px;background:#eaf0fc}
+</style>
+<main>
+<h1>Shifter extension build instructions</h1>
+<p>Production packages use the live Shifter API and real browser proxy controller. Source includes the toolbar connection badge and country-wide state, city and ASN search.</p>
+<h2>Version 0.1.1: preserve dashboard sessions</h2>
+<p>Removed cookie deletion from connect, switch and disconnect, and removed the <code>browsingData</code> permission from Chrome and Edge. Switching credentials now selects a gateway hostname/port with matching or unused cached credentials. It never clears website cookies.</p>
+<p>Gateway aliases are finite. Chrome and Edge stop the connection and ask for a browser restart when no compatible address remains, instead of silently using an old country or session. Pinning an entry point reduces the available addresses. ISP plans exposing only one address require a browser restart when changing the proxy username. Firefox retains its existing restart warning.</p>
+<p>Verification: Chrome and Firefox end-to-end suites passed, including eight consecutive session changes. Chrome and Edge builds passed a local HTTPS regression in Chrome for Testing: all five test cookies on <code>shifter.io</code> (including HttpOnly session and remember-me cookies) survived connect, two country switches, a new session, rotating mode, disconnect and exhausted-address handling. The fixture dashboard continued receiving the cookies after reload. Gateway logs confirmed new usernames on switches, and an already open site stopped using the proxy after disconnect. Edge itself and a real signed-in Shifter dashboard were not tested in this environment.</p>
+<h2>Environment</h2>
+<p>Build locally with Node.js 24.21.0 and npm 11.19.0. Extract the source archive into a clean directory. The included <code>package-lock.json</code> pins dependencies. Network access is needed to download npm dependencies; no API credentials are needed to build.</p>
+<p>Use a clean shell without <code>WXT_*</code> environment overrides and without local <code>.env</code> files. In particular, do not enable <code>WXT_USE_MOCK</code>, <code>WXT_SHIFTER_BASE_URL</code>, <code>WXT_GATEWAY_PORTS</code> or <code>WXT_OUT_DIR</code> for store builds.</p>
+<h2>Reproduce Firefox</h2>
+<pre><code>npm ci
+npm run compile
+npm run zip:firefox</code></pre>
+<p>The upload package is <code>build/shifter-proxy-extension-0.1.1-firefox.zip</code>. Its unpacked contents are in <code>build/firefox-mv2/</code>. The separately generated <code>build/shifter-proxy-extension-0.1.1-sources.zip</code> is the reviewer source archive.</p>
+<h2>Chrome and Edge</h2>
+<pre><code>npm run zip
+npx wxt zip -b edge</code></pre>
+<p>These produce <code>build/shifter-proxy-extension-0.1.1-chrome.zip</code> and <code>build/shifter-proxy-extension-0.1.1-edge.zip</code>. Upload the browser-specific ZIP with <code>manifest.json</code> at its root.</p>
+<h2>Included assets</h2>
+<p>The location catalog, icons, flags and fonts are included. Do not regenerate them to reproduce this release: the build uses <code>src/lib/geo/catalog.json</code> and the files under <code>public/</code> directly. Source for the catalog and icon generators is included for reference; running those generators is not a build step.</p>
+<h2>Review notes</h2>
+<p>Firefox uses Manifest V2 and Chrome/Edge use Manifest V3. The Firefox extension ID is <code>extension@shifter.io</code>. A valid Shifter API key and active proxy membership are required to test an actual connection; no account credentials are bundled.</p>
+<p class="note">The ZIPs are unsigned upload packages. Store submission, listing information and store signing are separate from this local build.</p>
+<p>Reference: <a href="https://extensionworkshop.com/documentation/publish/source-code-submission/">Mozilla source submission instructions</a> and <a href="https://developer.chrome.com/docs/webstore/publish/">Chrome Web Store publishing</a>.</p>
+</main>
+</html>

@@ -6,6 +6,10 @@ import type { ProxySettings, ResidentialTarget } from '../types';
  *
  *   <base>[-country-<iso2>][-region-<slug>][-city-<slug>][-asn-<num>][-sid-<id>][-ttl-<s>][-strict-true]
  *
+ * (proxy-config `username_format`, plus the gateway's `strict-true`: only the
+ * exact scope, no fallback to a wider area; leaving it out means not strict).
+ * `base` is the plan's username, e.g. "customer-demo".
+ *
  * NEVER log or render the result next to the password.
  */
 export function buildResidentialUsername(
@@ -27,7 +31,7 @@ export function buildResidentialUsername(
   return parts.join('-');
 }
 
-/** Fresh opaque session id; a new one pins a new exit IP. */
+/** Fresh opaque session id (letters and digits only); a new one pins a new exit IP. */
 export function newSid(): string {
   return crypto.randomUUID().replace(/-/g, '').slice(0, 12);
 }

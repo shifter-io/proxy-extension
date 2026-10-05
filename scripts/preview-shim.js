@@ -43,6 +43,7 @@
 
   // Mirrors entrypoints/background.ts with the MockProxyController timings.
   async function sendMessage(msg) {
+    if (msg.type === 'proxy:check') return { ok: true };
     if (msg.type === 'proxy:disconnect') {
       await local.set({ connection: { status: 'disconnected' } });
       return { ok: true };
@@ -50,8 +51,10 @@
     await local.set({ connection: { status: 'connecting', membershipId: msg.membershipId, target: msg.target } });
     await new Promise((r) => setTimeout(r, 1100));
     const o = () => Math.floor(Math.random() * 254) + 1;
-    const exitIp = msg.target.kind === 'isp' ? msg.target.ip.ip : `192.0.2.${o()}`;
-    await local.set({ connection: { status: 'connected', membershipId: msg.membershipId, target: msg.target, exitIp, since: new Date().toISOString() } });
+    // Stands in for the ip-info.com check the real worker runs.
+    const exitIp = `192.0.2.${o()}`;
+    const exitCountry = msg.target.kind === 'isp' ? msg.target.ip.country : msg.target.country?.code;
+    await local.set({ connection: { status: 'connected', membershipId: msg.membershipId, target: msg.target, exitIp, exitCountry, since: new Date().toISOString() } });
     return { ok: true };
   }
 

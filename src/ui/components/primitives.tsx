@@ -117,12 +117,13 @@ const STATUS_PILL: Record<MembershipStatus, { cls: string; label: string }> = {
   active: { cls: 'sf-pill-success', label: 'Active' },
   expiring: { cls: 'sf-pill-warning', label: 'Expiring soon' },
   expired: { cls: 'sf-pill-danger', label: 'Expired' },
-  suspended: { cls: 'sf-pill-danger', label: 'Suspended' },
+  suspended: { cls: 'sf-pill-warning', label: 'Not active' },
 };
 
-export function StatusPill({ status }: { status: MembershipStatus }) {
-  const { cls, label } = STATUS_PILL[status];
-  return <span className={`sf-pill sf-pill--xs ${cls}`}>{label}</span>;
+/** `label` overrides the default text, e.g. the panel's "Pending Payment". */
+export function StatusPill({ status, label }: { status: MembershipStatus; label?: string }) {
+  const pill = STATUS_PILL[status];
+  return <span className={`sf-pill sf-pill--xs ${pill.cls}`}>{label || pill.label}</span>;
 }
 
 export function ProgressBar({ ratio }: { ratio: number }) {

@@ -1,10 +1,15 @@
-import type { Membership, ResidentialMembership, Target } from './types';
+import type { IspIp, Membership, ResidentialMembership, Target } from './types';
 
+/** Decimal units, same as the panel and the API (1 GB = 1,000,000,000 bytes). */
 export function formatBytes(bytes: number, digits = 1): string {
-  const gb = bytes / 1024 ** 3;
+  const gb = bytes / 1e9;
+  if (gb >= 1000) return `${trim(gb / 1000, digits)} TB`;
   if (gb >= 1) return `${trim(gb, digits)} GB`;
-  const mb = bytes / 1024 ** 2;
-  return `${trim(mb, 0)} MB`;
+  return `${trim(bytes / 1e6, 0)} MB`;
+}
+
+export function formatMoney(amount: number, currency = 'USD'): string {
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount);
 }
 
 function trim(n: number, digits: number): string {
@@ -31,10 +36,46 @@ export function formatDuration(seconds: number): string {
   return `${trim(h, 1)} h`;
 }
 
+/** Traffic left on a metered plan; null when the plan has no cap. */
 export function trafficLeft(m: ResidentialMembership) {
-  const left = Math.max(0, m.trafficTotalBytes - m.trafficUsedBytes);
-  const ratio = m.trafficTotalBytes > 0 ? left / m.trafficTotalBytes : 0;
-  return { left, ratio };
+  if (!m.traffic) return null;
+  const { totalBytes, remainingBytes } = m.traffic;
+  const left = Math.max(0, remainingBytes);
+  const ratio = totalBytes > 0 ? left / totalBytes : 0;
+  return { left, ratio, total: totalBytes };
+}
+
+/** "Comcast #2" when several of the plan's IPs share country, city and ASN. */
+export function ispIpLabel(ip: IspIp): string {
+  return ip.seqOf > 1 ? `${ip.isp} #${ip.seq}` : ip.isp;
+}
+
+export function ispIpPlace(ip: IspIp): string {
+  return [ip.city ?? countryName(ip.country), ip.asn ? `AS${ip.asn}` : ''].filter(Boolean).join(' · ');
+}
+
+/** Numbers IPs that share country + city + ASN (#1, #2…), in list order. */
+export function numberIspIps(list: Omit<IspIp, 'seq' | 'seqOf'>[]): IspIp[] {
+  const key = (ip: Omit<IspIp, 'seq' | 'seqOf'>) => `${ip.country}|${ip.city ?? ''}|${ip.asn ?? ''}`;
+  const totals = new Map<string, number>();
+  for (const ip of list) totals.set(key(ip), (totals.get(key(ip)) ?? 0) + 1);
+  const seen = new Map<string, number>();
+  return list.map((ip) => {
+    const seq = (seen.get(key(ip)) ?? 0) + 1;
+    seen.set(key(ip), seq);
+    return { ...ip, seq, seqOf: totals.get(key(ip))! };
+  });
+}
+
+const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+
+/** English country name for an iso2 code ("us" -> "United States"). */
+export function countryName(code: string): string {
+  try {
+    return regionNames.of(code.toUpperCase()) ?? code.toUpperCase();
+  } catch {
+    return code.toUpperCase();
+  }
 }
 
 export function isUsable(m: Membership): boolean {
@@ -60,8 +101,8 @@ export function describeTarget(target: Target | undefined): { title: string; sub
   if (!target) return { title: 'Choose location', subtitle: 'No location selected' };
   if (target.kind === 'isp') {
     return {
-      title: target.ip.ip,
-      subtitle: [target.ip.city, target.ip.isp].filter(Boolean).join(' · '),
+      title: ispIpLabel(target.ip),
+      subtitle: ispIpPlace(target.ip),
     };
   }
   if (!target.country) return { title: 'Random location', subtitle: 'Worldwide · best available' };

@@ -37,7 +37,7 @@ export function LoginScreen() {
       return inputRef.current?.focus();
     }
     if (!KEY_RE.test(value)) {
-      setError("That doesn't look like a Shifter API key. Copy it again from your dashboard.");
+      setError("That doesn't look like a Shifter API key. Copy it again from your profile.");
       return inputRef.current?.focus();
     }
     setError(null);
@@ -50,8 +50,10 @@ export function LoginScreen() {
       setPhase('idle');
       setError(
         err instanceof ApiError && err.code === 'unauthorized'
-          ? 'This API key is not valid. It may have been regenerated. Copy the current one from your dashboard.'
-          : 'Network hiccup. Try again.',
+          ? 'Invalid API key. It may have been regenerated. Copy the current one from your profile.'
+          : err instanceof ApiError && (err.code === 'rate_limited' || err.code === 'network')
+            ? err.message
+            : "Couldn't reach Shifter. Check your connection and try again.",
       );
       inputRef.current?.select();
     }

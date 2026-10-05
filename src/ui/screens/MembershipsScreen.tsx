@@ -65,7 +65,7 @@ export function MembershipsScreen() {
             <div className="flex flex-col gap-3 animate-sf-fade-in">
               <SectionLabel right={<span className="sf-mono text-[11px] text-sf-text-muted">{usable.length}</span>}>Active</SectionLabel>
               {usable.map((m) => (
-                <MembershipCard key={m.id} m={m} onSelect={() => choose(m.id)} onRenew={() => openExternal(SHIFTER_URLS.renew(m.id))} />
+                <MembershipCard key={m.id} m={m} onSelect={() => choose(m.id)} onRenew={() => openExternal(SHIFTER_URLS.renew(m))} />
               ))}
             </div>
           )}
@@ -74,7 +74,7 @@ export function MembershipsScreen() {
             <div className="flex flex-col gap-3 mt-6">
               <SectionLabel>Inactive</SectionLabel>
               {inactive.map((m) => (
-                <MembershipCard key={m.id} m={m} onSelect={() => undefined} onRenew={() => openExternal(SHIFTER_URLS.renew(m.id))} />
+                <MembershipCard key={m.id} m={m} onSelect={() => undefined} onRenew={() => openExternal(SHIFTER_URLS.renew(m))} />
               ))}
             </div>
           )}

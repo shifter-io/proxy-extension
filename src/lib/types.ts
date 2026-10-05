@@ -11,7 +11,11 @@
 export interface User {
   id: string;
   email: string;
+  /** "First Last", or the username when the panel has no name. */
   name?: string;
+  username?: string;
+  walletBalance?: number;
+  currency?: string;
 }
 
 export interface Session {
@@ -40,16 +44,51 @@ interface MembershipBase {
    */
   planName: string;
   status: MembershipStatus;
-  /** ISO date. */
+  /** Panel status text ("Active, Recurring", "Canceled", "Pending Payment"…). */
+  statusLabel?: string;
+  /** ISO date the plan is paid until. */
   expiresAt: string;
-  autoRenew: boolean;
+  /** Next automatic renewal; null when the plan does not renew (one-time or cancelled). */
+  renewsAt: string | null;
+  /** Set while a free trial runs. */
+  trialEndsAt?: string | null;
+  /** Panel page for this plan (renew / manage). */
+  manageUrl?: string;
+}
+
+/** Traffic allowance; `null` on a membership means unmetered (no cap to show). */
+export interface Traffic {
+  totalBytes: number;
+  usedBytes: number;
+  remainingBytes: number;
+  overageBytes: number;
+  /** When the allowance resets (next billing cycle). */
+  resetsAt?: string | null;
+  /** Extra traffic the wallet pays for when overage is billed. */
+  walletCoversBytes?: number | null;
+}
+
+/** Gateway entry point ("auto" = nearest region). */
+export interface EntryPoint {
+  key: string;
+  host: string;
+  city: string | null;
+  region: string;
 }
 
 export interface ResidentialMembership extends MembershipBase {
   type: 'residential';
   pool: ResidentialPool;
-  trafficTotalBytes: number;
-  trafficUsedBytes: number;
+  /** Null when there's nothing to show: see `unmetered`. */
+  traffic: Traffic | null;
+  /** True only when usage says the plan has no traffic cap ("Unlimited"). A plan with no usage row yet is not unmetered. */
+  unmetered: boolean;
+  /** Gateway picked in the panel (proxy-config `host`), used when no entry point is chosen. */
+  gatewayHost?: string;
+  /** Gateway regions the customer can pin; empty when the plan isn't live yet. */
+  entryPoints: EntryPoint[];
+  /** False when the gateway doesn't allow sticky sessions on this plan. */
+  stickySessions: boolean;
 }
 
 export interface IspMembership extends MembershipBase {
@@ -86,8 +125,8 @@ export interface GeoAsn {
 
 /**
  * One hit from the cross-level location search. Carries the full parent
- * chain so selecting it produces a complete ResidentialTarget.
- * Proposed panel endpoint: GET /geo/search?q=<query>
+ * chain so selecting it produces a complete ResidentialTarget; an `asn` hit
+ * with a city is a city+ISP combination.
  */
 export interface GeoSearchResult {
   kind: 'country' | 'region' | 'city' | 'asn';
@@ -99,12 +138,21 @@ export interface GeoSearchResult {
 
 // ── ISP ─────────────────────────────────────────────────────────────────
 
+/**
+ * One ISP proxy of a plan. proxy-config has no address per proxy, so the
+ * exit IP is only shown while connected (from the IP check).
+ */
 export interface IspIp {
+  /** The proxy's own gateway username (each ISP IP has one). */
   id: string;
-  ip: string;
   country: string; // iso2
   city?: string;
-  isp: string; // carrier / ASN owner, e.g. "Comcast"
+  asn?: number;
+  isp: string; // carrier / ASN owner, e.g. "Comcast", or "AS9009" when unknown
+  /** 1-based position among the plan's IPs with the same country, city and ASN ("#2"). */
+  seq: number;
+  /** How many IPs share that country, city and ASN; no "#n" when 1. */
+  seqOf: number;
 }
 
 // ── Targeting / connection ──────────────────────────────────────────────
@@ -131,8 +179,10 @@ export interface ProxySettings {
   sessionMode: SessionMode;
   /** Sticky session lifetime in seconds (gateway `ttl-` flag). */
   ttlSeconds: number;
-  /** Fail instead of widening the location when the exact target is unavailable. */
+  /** Only the exact city / ASN, never a wider area (`-strict-true`). */
   strict: boolean;
+  /** Residential gateway entry point key; null = the gateway picked in the panel. */
+  entryPoint: string | null;
   /** Hostnames that always bypass the proxy. */
   bypassList: string[];
   /** Block WebRTC from leaking the real IP while connected. */
@@ -140,10 +190,17 @@ export interface ProxySettings {
 }
 
 export interface ProxyCredentials {
+  type: ProductType;
+  /** Gateway the customer picked in the panel (HTTP, even on port 443). */
   host: string;
   port: number;
+  /** Residential: base username the targeting is appended to. ISP: each IP has its own (IspIp.id). */
   username: string;
   password: string;
+  /** Residential gateway regions; the chosen one replaces `host`. */
+  entryPoints: EntryPoint[];
+  /** False when the plan doesn't allow `sid-` sticky sessions. */
+  stickySessions: boolean;
 }
 
 export type ConnectionState =
@@ -154,7 +211,13 @@ export type ConnectionState =
       membershipId: string;
       target: Target;
       since: string;
-      /** Exit IP as reported by the gateway / an IP check. */
+      /** Exit IP from the IP check; the only place an ISP proxy's address is shown. */
       exitIp: string;
+      /** iso2 of the exit, from the IP check. */
+      exitCountry?: string;
+      /** 'unavailable' = the toggle is on but another extension or a policy controls WebRTC. */
+      webrtc?: 'protected' | 'off' | 'unavailable';
+      /** Firefox: every gateway address already remembers another login; the change fully applies after a restart. */
+      loginStale?: boolean;
     }
   | { status: 'error'; message: string };

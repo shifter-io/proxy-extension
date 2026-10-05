@@ -8,7 +8,9 @@ import type { Target } from '../types';
  */
 export type ProxyMessage =
   | { type: 'proxy:connect'; membershipId: string; target: Target }
-  | { type: 'proxy:disconnect' };
+  | { type: 'proxy:disconnect' }
+  /** Re-run the exit-IP check now (the popup sends it when it opens). */
+  | { type: 'proxy:check' };
 
 export type ProxyReply = { ok: true } | { ok: false; error: string };
 
