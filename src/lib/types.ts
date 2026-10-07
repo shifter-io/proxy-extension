@@ -56,7 +56,7 @@ interface MembershipBase {
   manageUrl?: string;
 }
 
-/** Traffic allowance; `null` on a membership means unmetered (no cap to show). */
+/** Residential traffic allowance and balance from the usage API. */
 export interface Traffic {
   totalBytes: number;
   usedBytes: number;
@@ -79,10 +79,8 @@ export interface EntryPoint {
 export interface ResidentialMembership extends MembershipBase {
   type: 'residential';
   pool: ResidentialPool;
-  /** Null when there's nothing to show: see `unmetered`. */
+  /** Null when the allowance or balance is unavailable; never means unlimited. */
   traffic: Traffic | null;
-  /** True only when usage says the plan has no traffic cap ("Unlimited"). A plan with no usage row yet is not unmetered. */
-  unmetered: boolean;
   /** Gateway picked in the panel (proxy-config `host`), used when no entry point is chosen. */
   gatewayHost?: string;
   /** Gateway regions the customer can pin; empty when the plan isn't live yet. */

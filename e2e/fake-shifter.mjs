@@ -17,7 +17,7 @@ export const log = [];
 
 const iso = (days) => new Date(Date.now() + days * 86_400_000).toISOString();
 
-const MEMBERSHIPS = {
+export const MEMBERSHIPS = {
   DEMO1: {
     name: 'test #DEMO1 - Spark', status: 'Active', color: 'success', service: 'backconnect', uri: 'backconnect/DEMO1/',
     membership_id: 1, product: 'Spark', category: 'Residential Proxies', is_recurring: true, is_trial: false,
@@ -37,7 +37,7 @@ const MEMBERSHIPS = {
   },
 };
 
-const USAGE = {
+export const USAGE = {
   memberships: [{
     id: 'DEMO1', plan: 'Spark', service: 'backconnect', status: 'Active', metered: true,
     quota_bytes: 5e9, used_bytes: 1.25e9, remaining_bytes: 3.75e9, overage_bytes: 0, used_percent: 25,
@@ -46,7 +46,7 @@ const USAGE = {
 };
 
 // *.localhost always resolves to this machine, so these stand in for fra/ams/lon.p.shifter.io.
-const PROXY_CONFIG = {
+export const PROXY_CONFIG = {
   plans: [{
     membership_id: 1, hash: 'DEMO1', product: 'Spark', status: 'Active', protocol: 'http', type: 'residential',
     pool: 'full', pool_label: 'Full Geo', host: '127.0.0.1', port: GATEWAY_PORTS[0],
@@ -75,9 +75,9 @@ const api = http.createServer((req, res) => {
     case '/api/v1/user/me':
       return ok({ user_id: 1, username: 'tester', first_name: 'Test', last_name: 'User', email: 't@example.com', wallet_balance: 10, currency: 'USD', created_at: iso(-100) });
     case '/api/v1/user/memberships':
-      return ok(MEMBERSHIPS);
+      return ok(options.memberships ?? MEMBERSHIPS);
     case '/api/v1/user/usage':
-      return ok(USAGE);
+      return ok(options.usage ?? USAGE);
     case '/api/v1/user/proxy-config':
       return ok(options.gatewayHosts ? {
         plans: PROXY_CONFIG.plans.map(plan => ({
@@ -85,7 +85,7 @@ const api = http.createServer((req, res) => {
           host: options.gatewayHosts[0],
           entry_points: plan.entry_points.map((entry, i) => ({ ...entry, host: options.gatewayHosts[i] })),
         })),
-      } : PROXY_CONFIG);
+      } : options.proxyConfig ?? PROXY_CONFIG);
     default:
       if (url.pathname.startsWith('/api/v1/residential/geo/')) return send(200, []);
       return send(404, { error: 'not found', code: 404 });

@@ -12,6 +12,7 @@ import type {
   ProxyCredentials,
   ResidentialPool,
   Session,
+  Traffic,
   User,
 } from '../../types';
 import { numberIspIps } from '../../format';
@@ -310,21 +311,26 @@ function toMembership(
     ...base,
     type: 'residential',
     pool,
-    traffic:
-      usage?.metered && usage.quota_bytes != null
-        ? {
-            totalBytes: usage.quota_bytes,
-            usedBytes: usage.used_bytes ?? 0,
-            remainingBytes: usage.remaining_bytes ?? Math.max(0, usage.quota_bytes - (usage.used_bytes ?? 0)),
-            overageBytes: usage.overage_bytes ?? 0,
-            resetsAt: usage.resets_at,
-            walletCoversBytes: usage.overage_billed && usage.wallet_covers_gb != null ? usage.wallet_covers_gb * 1e9 : null,
-          }
-        : null,
-    unmetered: usage?.metered === false,
+    traffic: residentialTraffic(usage),
     gatewayHost: res?.host,
     entryPoints: (res?.entry_points ?? []).map(toEntryPoint),
     stickySessions: res?.targeting?.sticky_session ?? true,
+  };
+}
+
+function residentialTraffic(usage?: WireUsageMembership): Traffic | null {
+  if (!usage) return null;
+  const { quota_bytes: quota, used_bytes: used, remaining_bytes: remaining } = usage;
+  // Residential plans have an allowance even if the API mislabels them as
+  // unmetered. Use the supplied figures; missing usage is not zero usage.
+  if (typeof quota !== 'number' || (typeof used !== 'number' && typeof remaining !== 'number')) return null;
+  return {
+    totalBytes: quota,
+    usedBytes: used ?? Math.max(0, quota - remaining!),
+    remainingBytes: remaining ?? Math.max(0, quota - used!),
+    overageBytes: usage.overage_bytes ?? 0,
+    resetsAt: usage.resets_at,
+    walletCoversBytes: usage.overage_billed && usage.wallet_covers_gb != null ? usage.wallet_covers_gb * 1e9 : null,
   };
 }
 

@@ -67,13 +67,11 @@ export function ExpiryLine({ m }: { m: Membership }) {
 
 export function UsageLine({ m }: { m: Membership }) {
   const usage = m.type === 'residential' ? trafficLeft(m) : null;
-  // No usage data yet (plan not live): show nothing rather than "Unlimited".
-  if (!usage && m.type === 'residential' && !m.unmetered) return null;
   if (!usage) {
     return (
       <div className="flex items-center justify-between text-[12px]">
-        <span className="text-sf-text-tertiary">{m.type === 'isp' ? 'Bandwidth' : 'Traffic'}</span>
-        <span className="sf-mono text-sf-text-secondary">Unlimited</span>
+        <span className="text-sf-text-tertiary">{m.type === 'isp' ? 'Bandwidth' : 'Traffic left'}</span>
+        <span className="sf-mono text-sf-text-secondary">{m.type === 'isp' ? 'Unlimited' : '—'}</span>
       </div>
     );
   }

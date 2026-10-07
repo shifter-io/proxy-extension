@@ -27,7 +27,7 @@ export const ENTRY_POINTS: EntryPoint[] = [
   { key: 'syd', host: 'syd.p.shifter.io', city: 'Sydney', region: 'Asia Pacific' },
 ];
 
-const live = { unmetered: false, gatewayHost: 'p.shifter.io', entryPoints: ENTRY_POINTS, stickySessions: true };
+const live = { gatewayHost: 'p.shifter.io', entryPoints: ENTRY_POINTS, stickySessions: true };
 
 export const MEMBERSHIPS: Membership[] = [
   {

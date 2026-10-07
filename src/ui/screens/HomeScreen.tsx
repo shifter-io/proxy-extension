@@ -281,11 +281,7 @@ function UsageStat({ m }: { m: Membership }) {
 
   const usage = trafficLeft(m);
   if (!usage) {
-    return m.unmetered ? (
-      <Stat label="Traffic" value="Unlimited" sub="No traffic cap" />
-    ) : (
-      <Stat label="Traffic" value="—" sub="Not available yet" />
-    );
+    return <Stat label="Traffic left" value="—" sub="Not available yet" />;
   }
   const tone = usage.ratio <= 0.1 ? 'danger' : usage.ratio <= 0.25 ? 'warning' : '';
   return (

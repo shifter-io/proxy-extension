@@ -36,7 +36,7 @@ export function formatDuration(seconds: number): string {
   return `${trim(h, 1)} h`;
 }
 
-/** Traffic left on a metered plan; null when the plan has no cap. */
+/** Residential traffic left; null when the allowance or balance is unavailable. */
 export function trafficLeft(m: ResidentialMembership) {
   if (!m.traffic) return null;
   const { totalBytes, remainingBytes } = m.traffic;
