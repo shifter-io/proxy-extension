@@ -252,9 +252,15 @@ function toEntryPoint(e: { key: string; host: string; city: string | null; regio
 
 const POOLS: ResidentialPool[] = ['full', 'country', 'non-geo'];
 
+/**
+ * Only the current product lines. Legacy plans are left out: "Static
+ * Residential Proxies" (pinned-IP ISP, service static-residential-proxies)
+ * has no login in proxy-config, and Special Backconnect is another product.
+ */
 function productType(m: WireMembership, live: WirePlan | undefined): Membership['type'] | null {
   if (live) return live.type;
-  if (m.pool || /residential/i.test(m.category)) return 'residential';
+  if (m.service === 'static-residential-proxies') return null;
+  if (m.pool || /^residential/i.test(m.category)) return 'residential';
   if (/^isp/i.test(m.category)) return 'isp';
   return null; // other product lines can't be used from the browser
 }

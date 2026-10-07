@@ -2,7 +2,7 @@
   "name": "shifter-proxy-extension",
   "description": "Shifter browser extension: browse through your Shifter Residential & ISP proxies.",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "dev": "wxt",

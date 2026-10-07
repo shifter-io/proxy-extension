@@ -24,6 +24,17 @@ const MEMBERSHIPS = {
     created_at: iso(-5), expires_at: iso(25), renews_at: iso(25), trial_ends_at: null, canceled_at: null,
     pool: 'full', pool_label: 'Full Geo',
   },
+  // Active on the panel but not current product lines: the extension hides them.
+  YG7L: {
+    name: 'test #YG7L - 4 ISP Proxies', status: 'Active, Recurring', color: 'success', service: 'static-residential-proxies',
+    uri: 'static-residential-proxies/YG7L/', membership_id: 2, product: '4 ISP Proxies', category: 'Static Residential Proxies',
+    is_recurring: true, is_trial: false, created_at: iso(-5), expires_at: iso(20), renews_at: iso(20), trial_ends_at: null, canceled_at: null,
+  },
+  lKNm: {
+    name: 'test #lKNm - 5 Special Rotating Proxies', status: 'Active, Recurring', color: 'success', service: 'backconnect',
+    uri: 'backconnect/lKNm/', membership_id: 3, product: '5 Special Rotating Proxies', category: 'Special Backconnect Proxies',
+    is_recurring: true, is_trial: false, created_at: iso(-5), expires_at: iso(20), renews_at: iso(20), trial_ends_at: null, canceled_at: null,
+  },
 };
 
 const USAGE = {
