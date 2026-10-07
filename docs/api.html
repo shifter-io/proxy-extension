@@ -1,0 +1,216 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Shifter Extension API Reference</title><meta name="description" content="Shifter browser proxy extension for Residential and ISP proxies. Chrome and Firefox setup, location targeting, sticky sessions, privacy, and development."><style>*{box-sizing:border-box}html{scroll-behavior:smooth;color-scheme:light}body{margin:0;background:#ffffff;color:#1f2328;font:16px/1.65 system-ui,-apple-system,sans-serif}header,main,footer{max-width:1040px;margin:auto;padding:26px 40px}header{color:#59636e;font-size:12px;letter-spacing:1.5px;font-weight:600;border-bottom:1px solid #d1d9e0}main{padding-top:20px}h1,h2,h3{color:#1f2328;line-height:1.3}h1{font-size:34px;letter-spacing:-.9px;margin:28px 0 16px}h2{margin-top:42px;padding-bottom:10px;border-bottom:1px solid #d1d9e0;font-size:24px}h3{margin-top:28px;font-size:19px}p{margin:16px 0}p[align=center]{text-align:center}p[align=center] img{display:block;width:100%;max-width:960px;height:auto;margin:0 auto}h1[align=center]{text-align:center}a{color:#0969da;text-underline-offset:3px;text-decoration:none}a:hover{text-decoration:underline}code{font:13px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere;background:#eff1f3;border-radius:4px;padding:2px 5px}pre{padding:20px;overflow:auto;background:#f6f8fa;border:1px solid #d1d9e0;border-radius:8px}pre code{white-space:pre;overflow-wrap:normal;padding:0;background:none}.table{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:12px 14px;border:1px solid #d1d9e0;text-align:left;vertical-align:top}th{background:#f6f8fa;color:#1f2328}tr:nth-child(even){background:#f6f8fa}li{margin:6px 0}footer{border-top:1px solid #d1d9e0;color:#59636e;font-size:13px}h2,h3{scroll-margin-top:18px}@media(max-width:650px){header,main,footer{padding:18px}h1{font-size:27px}table{min-width:540px}}@media print{html{color-scheme:light}body{background:white;color:#172235}header,main,footer{max-width:none;padding:12px}h1,h2,h3,th{color:#172235}h2,h3{break-after:avoid}pre,th,tr:nth-child(even){background:#f1f4f8}a{color:#1756a5}}</style></head><body><main><h1 id="shifter-api-for-the-browser-extension">Shifter API for the browser extension</h1>
+<p>All account names, IDs, balances, usernames and credentials below are synthetic examples. They are not customer records.</p>
+<p>Everything the extension needs to sign a customer in, show their account and set up their proxy.</p>
+<ul><li><strong>Base URL:</strong> <code>https://shifter.io</code></li><li><strong>Format:</strong> JSON over HTTPS. All dates are ISO-8601 in UTC (<code>2026-10-23T08:44:14+00:00</code>). Money is USD. Traffic is in bytes and in decimal GB (1 GB = 1,000,000,000 bytes).</li></ul>
+<p>---</p>
+<h2 id="1-signing-in-the-api-key">1. Signing in: the API key</h2>
+<p>The customer signs in by pasting their <strong>API key</strong>. There is no separate extension login.</p>
+<div class="table"><table><tr><th>The customer...</th><th>Tell them to...</th></tr><tr><td>has a Shifter account</td><td>open <strong>https://shifter.io/user/profile</strong>, copy the key from the <strong>API Key</strong> section, and paste it into the extension</td></tr><tr><td>has no account</td><td>create one at <strong>https://shifter.io/login</strong> (email, Google or GitHub), buy or start a plan, then copy the key as above</td></tr></table></div>
+<p>Send the key on every request, either way:</p>
+<pre><code>Authorization: Bearer &lt;API_KEY&gt;              (recommended)
+GET /api/v1/user/me?api_token=&lt;API_KEY&gt;      (also accepted)</code></pre>
+<p>The geo endpoints (section 4) take the same key as <code>X-Api-Key: &lt;API_KEY&gt;</code> or <code>?api_key=&lt;API_KEY&gt;</code>.</p>
+<p><strong>How to treat the key:</strong> - The key gives full access to the account, so treat it like a password. - Store it only in <code>chrome.storage.local</code>, never in logs or analytics. - &quot;Log out&quot; in the extension simply deletes it. - If a call ever returns 401, the key is no longer valid: sign the customer out and ask for the key again.</p>
+<h3 id="checking-a-key">Checking a key</h3>
+<p>Call <code>GET /api/v1/user/me</code>: - <strong>200:</strong> the key is valid, and you get who is signed in. - <strong>401:</strong> show &quot;Invalid API key&quot; and ask for it again.</p>
+<p>---</p>
+<h2 id="2-response-format-and-errors">2. Response format and errors</h2>
+<p>The <code>/api/v1/user/*</code> endpoints wrap every response like this:</p>
+<pre><code>{ &quot;error&quot;: null, &quot;code&quot;: 200, &quot;data&quot;: { ... } }</code></pre>
+<div class="table"><table><tr><th>HTTP</th><th>Body</th><th>Meaning</th></tr><tr><td>200</td><td><code>{&quot;error&quot;:null,&quot;code&quot;:200,&quot;data&quot;:{...}}</code></td><td>OK</td></tr><tr><td>401</td><td><code>{&quot;error&quot;:&quot;Unauthorized&quot;,&quot;code&quot;:401}</code></td><td>missing or wrong key</td></tr><tr><td>429</td><td>Too Many Attempts</td><td>rate limit hit; wait and retry</td></tr><tr><td>5xx</td><td></td><td>our side; retry later</td></tr></table></div>
+<p><strong>Rate limit:</strong> 60 requests per minute per key on <code>/user/me</code>, <code>/user/usage</code> and <code>/user/proxy-config</code>, and 60 per minute per IP on the geo endpoints. The popup only needs one refresh when it opens; please don&#x27;t poll more often than once a minute.</p>
+<p>---</p>
+<h2 id="3-endpoints">3. Endpoints</h2>
+<h3 id="get-apiv1userme-who-is-signed-in"><code>GET /api/v1/user/me</code>: who is signed in</h3>
+<p>Use it for the header of the popup (&quot;Hi Demo, $440.50 in your wallet&quot;).</p>
+<pre><code>{
+  &quot;error&quot;: null, &quot;code&quot;: 200,
+  &quot;data&quot;: {
+    &quot;user_id&quot;: 1001,
+    &quot;username&quot;: &quot;demo&quot;,
+    &quot;first_name&quot;: &quot;Demo&quot;,
+    &quot;last_name&quot;: &quot;User&quot;,
+    &quot;email&quot;: &quot;demo@example.invalid&quot;,
+    &quot;wallet_balance&quot;: 440.5,
+    &quot;currency&quot;: &quot;USD&quot;,
+    &quot;created_at&quot;: &quot;2022-05-04T10:12:00+00:00&quot;
+  }
+}</code></pre>
+<p><code>first_name</code> and <code>last_name</code> can be <code>null</code>, so fall back to <code>username</code>.</p>
+<p>---</p>
+<h3 id="get-apiv1usermemberships-the-customers-plans"><code>GET /api/v1/user/memberships</code>: the customer&#x27;s plans</h3>
+<p>An object keyed by the plan&#x27;s short id (hash). It includes cancelled plans; use <code>canceled_at</code> and <code>status</code> to decide what to show.</p>
+<pre><code>{
+  &quot;error&quot;: null, &quot;code&quot;: 200,
+  &quot;data&quot;: {
+    &quot;DEMO1&quot;: {
+      &quot;name&quot;: &quot;demo  #DEMO1 - Spark&quot;,
+      &quot;status&quot;: &quot;Active&quot;,
+      &quot;color&quot;: &quot;success&quot;,
+      &quot;service&quot;: &quot;backconnect&quot;,
+      &quot;uri&quot;: &quot;backconnect/DEMO1/&quot;,
+      &quot;membership_id&quot;: 2001,
+      &quot;product&quot;: &quot;Spark&quot;,
+      &quot;category&quot;: &quot;Residential Proxies&quot;,
+      &quot;is_recurring&quot;: true,
+      &quot;is_trial&quot;: false,
+      &quot;created_at&quot;: &quot;2026-09-23T08:44:14+00:00&quot;,
+      &quot;expires_at&quot;: &quot;2026-10-23T09:09:18+00:00&quot;,
+      &quot;renews_at&quot;: &quot;2026-10-23T08:44:14+00:00&quot;,
+      &quot;trial_ends_at&quot;: null,
+      &quot;canceled_at&quot;: null
+    }
+  }
+}</code></pre>
+<div class="table"><table><tr><th>Field</th><th>Meaning</th></tr><tr><td><code>product</code></td><td>plan name to show (&quot;Spark&quot;, &quot;Business&quot;, &quot;50 ISP Proxies&quot;...)</td></tr><tr><td><code>category</code></td><td>product line: &quot;Residential Proxies&quot;, &quot;ISP Proxies&quot;, &quot;Special Backconnect Proxies&quot;, ...</td></tr><tr><td><code>status</code></td><td>human-readable status: &quot;Active&quot;, &quot;Active, Recurring&quot;, &quot;Active Trial&quot;, &quot;Canceled&quot;, &quot;Pending Payment&quot;, ...</td></tr><tr><td><code>color</code></td><td><code>success</code> (green, OK), <code>warning</code> (amber, needs attention), <code>danger</code> (red, cancelled/expired), <code>info</code></td></tr><tr><td><code>expires_at</code></td><td>the date the plan is paid until</td></tr><tr><td><code>renews_at</code></td><td>next automatic renewal; <code>null</code> when the plan does not renew (one-time or cancelled)</td></tr><tr><td><code>trial_ends_at</code></td><td>only while a free trial is running</td></tr><tr><td><code>canceled_at</code></td><td>set when the customer cancelled; the plan still works until <code>expires_at</code></td></tr></table></div>
+<p><strong>What to show:</strong> if <code>renews_at</code> is set, say &quot;Renews &lt;renews_at&gt;&quot;; otherwise say &quot;Expires &lt;expires_at&gt;&quot;.</p>
+<p>---</p>
+<h3 id="get-apiv1userusage-traffic-left-and-wallet"><code>GET /api/v1/user/usage</code>: traffic left and wallet</h3>
+<p>Traffic for every live plan, including plans in team workspaces the customer belongs to. Optional <code>?workspace=&lt;id&gt;</code> narrows it to one workspace.</p>
+<pre><code>{
+  &quot;error&quot;: null, &quot;code&quot;: 200,
+  &quot;data&quot;: {
+    &quot;totals&quot;: {
+      &quot;quota_bytes&quot;: 50000000000, &quot;used_bytes&quot;: 12500000000, &quot;remaining_bytes&quot;: 37500000000, &quot;overage_bytes&quot;: 0,
+      &quot;quota_gb&quot;: 50, &quot;used_gb&quot;: 12.5, &quot;remaining_gb&quot;: 37.5, &quot;overage_gb&quot;: 0, &quot;used_percent&quot;: 25
+    },
+    &quot;workspaces&quot;: [
+      { &quot;id&quot;: &quot;DEMO3&quot;, &quot;name&quot;: &quot;Personal&quot;, &quot;role&quot;: &quot;owner&quot;, &quot;personal&quot;: true, &quot;wallet_balance&quot;: 440.5 }
+    ],
+    &quot;memberships&quot;: [
+      {
+        &quot;id&quot;: &quot;DEMO1&quot;,
+        &quot;plan&quot;: &quot;Spark&quot;,
+        &quot;service&quot;: &quot;backconnect&quot;,
+        &quot;status&quot;: &quot;Active&quot;,
+        &quot;metered&quot;: true,
+        &quot;quota_bytes&quot;: 5000000000, &quot;used_bytes&quot;: 1250000000, &quot;remaining_bytes&quot;: 3750000000, &quot;overage_bytes&quot;: 0,
+        &quot;quota_gb&quot;: 5, &quot;used_gb&quot;: 1.25, &quot;remaining_gb&quot;: 3.75, &quot;overage_gb&quot;: 0,
+        &quot;used_percent&quot;: 25,
+        &quot;resets_at&quot;: &quot;2026-10-23T08:44:14+00:00&quot;,
+        &quot;overage_billed&quot;: true,
+        &quot;overage_rate_per_gb&quot;: 2,
+        &quot;wallet_balance&quot;: 440.5,
+        &quot;wallet_covers_gb&quot;: 220.25,
+        &quot;workspace&quot;: { &quot;id&quot;: &quot;DEMO3&quot;, &quot;name&quot;: &quot;Personal&quot;, &quot;role&quot;: &quot;owner&quot;, &quot;personal&quot;: true }
+      }
+    ]
+  }
+}</code></pre>
+<ul><li><code>memberships[].id</code> is the same short id (hash) as the keys of <code>/user/memberships</code>, so use it to join the two.</li><li><code>metered: false</code> means the plan has no traffic cap to show (ISP lists, some legacy plans, scraping/SERP). All traffic fields are then <code>null</code>, not <code>0</code>; show &quot;Unlimited&quot; or nothing.</li><li><code>resets_at</code> is when the traffic allowance resets (the next billing cycle).</li><li><code>overage_billed: true</code> means traffic over the allowance is charged from the wallet at <code>overage_rate_per_gb</code>, and <code>wallet_covers_gb</code> is how much extra traffic the current wallet balance pays for.</li></ul>
+<p>---</p>
+<h3 id="get-apiv1userproxy-config-proxy-login-details"><code>GET /api/v1/user/proxy-config</code>: proxy login details</h3>
+<p>Everything needed to configure the proxy, for each <strong>live</strong> plan the customer owns that runs on our gateway. Unpaid and not-yet-active plans are not listed, and neither are older product lines, which keep their own endpoints.</p>
+<pre><code>{
+  &quot;error&quot;: null, &quot;code&quot;: 200,
+  &quot;data&quot;: {
+    &quot;plans&quot;: [
+      {
+        &quot;membership_id&quot;: 2001,
+        &quot;hash&quot;: &quot;DEMO1&quot;,
+        &quot;product&quot;: &quot;Spark&quot;,
+        &quot;status&quot;: &quot;Active&quot;,
+        &quot;protocol&quot;: &quot;http&quot;,
+        &quot;type&quot;: &quot;residential&quot;,
+        &quot;pool&quot;: &quot;full&quot;,
+        &quot;pool_label&quot;: &quot;Full Geo&quot;,
+        &quot;host&quot;: &quot;p.shifter.io&quot;,
+        &quot;port&quot;: 443,
+        &quot;entry_points&quot;: [
+          { &quot;key&quot;: &quot;auto&quot;, &quot;host&quot;: &quot;p.shifter.io&quot;,     &quot;city&quot;: null,        &quot;region&quot;: &quot;Automatic&quot; },
+          { &quot;key&quot;: &quot;fra&quot;,  &quot;host&quot;: &quot;fra.p.shifter.io&quot;, &quot;city&quot;: &quot;Frankfurt&quot;, &quot;region&quot;: &quot;Europe&quot; },
+          { &quot;key&quot;: &quot;ams&quot;,  &quot;host&quot;: &quot;ams.p.shifter.io&quot;, &quot;city&quot;: &quot;Amsterdam&quot;, &quot;region&quot;: &quot;Europe&quot; },
+          { &quot;key&quot;: &quot;lon&quot;,  &quot;host&quot;: &quot;lon.p.shifter.io&quot;, &quot;city&quot;: &quot;London&quot;,    &quot;region&quot;: &quot;Europe&quot; },
+          { &quot;key&quot;: &quot;nyc&quot;,  &quot;host&quot;: &quot;nyc.p.shifter.io&quot;, &quot;city&quot;: &quot;New York&quot;,  &quot;region&quot;: &quot;North America&quot; },
+          { &quot;key&quot;: &quot;tor&quot;,  &quot;host&quot;: &quot;tor.p.shifter.io&quot;, &quot;city&quot;: &quot;Toronto&quot;,   &quot;region&quot;: &quot;North America&quot; },
+          { &quot;key&quot;: &quot;sgp&quot;,  &quot;host&quot;: &quot;sgp.p.shifter.io&quot;, &quot;city&quot;: &quot;Singapore&quot;, &quot;region&quot;: &quot;Asia Pacific&quot; },
+          { &quot;key&quot;: &quot;blr&quot;,  &quot;host&quot;: &quot;blr.p.shifter.io&quot;, &quot;city&quot;: &quot;Bangalore&quot;, &quot;region&quot;: &quot;Asia Pacific&quot; },
+          { &quot;key&quot;: &quot;syd&quot;,  &quot;host&quot;: &quot;syd.p.shifter.io&quot;, &quot;city&quot;: &quot;Sydney&quot;,    &quot;region&quot;: &quot;Asia Pacific&quot; }
+        ],
+        &quot;username&quot;: &quot;customer-demo&quot;,
+        &quot;password&quot;: &quot;XXXXXXXX&quot;,
+        &quot;targeting&quot;: { &quot;country&quot;: true, &quot;region&quot;: true, &quot;city&quot;: true, &quot;asn&quot;: true, &quot;sticky_session&quot;: true },
+        &quot;username_format&quot;: &quot;customer-{username}[-country-{iso2}][-region-{slug}][-city-{slug}][-asn-{number}][-sid-{session_id}][-ttl-{seconds}]&quot;
+      },
+      {
+        &quot;membership_id&quot;: 2002,
+        &quot;hash&quot;: &quot;DEMO2&quot;,
+        &quot;product&quot;: &quot;4 ISP Proxies&quot;,
+        &quot;status&quot;: &quot;Active, Recurring&quot;,
+        &quot;protocol&quot;: &quot;http&quot;,
+        &quot;type&quot;: &quot;isp&quot;,
+        &quot;host&quot;: &quot;isp.shifter.io&quot;,
+        &quot;port&quot;: 443,
+        &quot;password&quot;: &quot;XXXXXXXX&quot;,
+        &quot;proxies&quot;: [
+          { &quot;username&quot;: &quot;us-new_york-new_york-as9009-DEMO1&quot;, &quot;country&quot;: &quot;us&quot;, &quot;city&quot;: &quot;New York&quot;, &quot;asn&quot;: 9009 },
+          { &quot;username&quot;: &quot;ro-bucharest-bucharest-as8708-DEMO2&quot;, &quot;country&quot;: &quot;ro&quot;, &quot;city&quot;: &quot;Bucharest&quot;, &quot;asn&quot;: 8708 }
+        ]
+      }
+    ]
+  }
+}</code></pre>
+<p>An empty <code>plans</code> array means the customer has nothing to connect yet; link them to https://shifter.io/order.</p>
+<h4 id="residential-plans-type-residential">Residential plans (<code>&quot;type&quot;: &quot;residential&quot;</code>)</h4>
+<p>The customer gets one login, and targeting goes <strong>into the username</strong>, dash-separated:</p>
+<pre><code>customer-demo                                         any IP, rotates on every request
+customer-demo-country-us                              a US IP
+customer-demo-country-us-city-new_york                a New York IP
+customer-demo-country-us-region-california            a California IP
+customer-demo-country-de-asn-3320                     Deutsche Telekom (AS3320) in Germany
+customer-demo-country-us-sid-a1b2c3                   sticky: same IP for this session id
+customer-demo-country-us-sid-a1b2c3-ttl-600           sticky for 600 seconds (default 120)</code></pre>
+<ul><li><strong>Which targeting is allowed:</strong> it depends on the pool, so only offer what <code>targeting</code> marks <code>true</code>:</li></ul>
+<p>  - <strong>Full Geo:</strong> country, region, city, ASN.   - <strong>Country Geo:</strong> country only.   - <strong>Non-Geo:</strong> no targeting at all. - <strong>Sticky sessions:</strong> a new <code>sid</code> value means a new IP. Keep the same <code>sid</code> to keep the IP until its <code>ttl</code> runs out. Use letters and digits only. - <strong>Entry point:</strong> <code>host</code> is the gateway the customer picked in the panel; the default, <code>p.shifter.io</code>, connects to the nearest region automatically. Offer <code>entry_points</code> as an &quot;Entry point&quot; choice if you want: a fixed region keeps a sticky session on the same IP even if the customer&#x27;s network changes location. - <strong>Protocol:</strong> use <strong>HTTP</strong> on port <strong>443</strong> (a plain HTTP proxy, even though the port is 443).</p>
+<h4 id="isp-select-plans-type-isp">ISP Select plans (<code>&quot;type&quot;: &quot;isp&quot;</code>)</h4>
+<ul><li>Each purchased IP has its own username, all sharing the plan <code>password</code>, on <code>isp.shifter.io:443</code>.</li><li>Each IP is a fixed address in a chosen city and ISP, so offer the list and let the customer pick one.</li><li>There&#x27;s no targeting to build.</li></ul>
+<p>---</p>
+<h2 id="4-geo-lists-for-the-targeting-dropdowns">4. Geo lists for the targeting dropdowns</h2>
+<p>These list the countries, regions, cities and ASNs available, so the customer picks from a list instead of typing slugs. They&#x27;re plain JSON arrays with no <code>data</code> wrapper, and they take the key as <code>X-Api-Key</code> or <code>?api_key=</code>.</p>
+<div class="table"><table><tr><th>Endpoint</th><th>Returns</th></tr><tr><td><code>GET /api/v1/residential/geo/countries</code></td><td><code>[{&quot;code&quot;:&quot;us&quot;,&quot;name&quot;:&quot;United States&quot;}, ...]</code></td></tr><tr><td><code>GET /api/v1/residential/geo/regions?country=us</code></td><td><code>[{&quot;slug&quot;:&quot;california&quot;,&quot;name&quot;:&quot;California&quot;}, ...]</code></td></tr><tr><td><code>GET /api/v1/residential/geo/cities?country=us&amp;region=new_york</code></td><td><code>[{&quot;slug&quot;:&quot;new_york&quot;,&quot;name&quot;:&quot;New York&quot;}, ...]</code> (drop <code>region</code> for every city in the country)</td></tr><tr><td><code>GET /api/v1/residential/geo/asns?country=de</code></td><td><code>[{&quot;asn&quot;:3320,&quot;name&quot;:&quot;Deutsche Telekom AG&quot;}, ...]</code></td></tr></table></div>
+<ul><li><strong>Use the slug:</strong> put the <code>slug</code> (or <code>code</code> / <code>asn</code>) into the username, never the display name.</li><li><strong>How slugs are made:</strong> accents become plain letters, everything is lowercase, and each run of other characters becomes one <code>_</code>. For example <code>São Paulo</code> becomes <code>sao_paulo</code>, <code>Île-de-France</code> becomes <code>ile_de_france</code>, and <code>St. John&#x27;s</code> becomes <code>st_john_s</code>.</li><li><strong>Cache the lists:</strong> they change rarely. Cache them for a day, per country.</li></ul>
+<p>---</p>
+<h2 id="5-setting-the-proxy-in-chrome-manifest-v3">5. Setting the proxy in Chrome (Manifest V3)</h2>
+<p><code>manifest.json</code>:</p>
+<pre><code>{
+  &quot;manifest_version&quot;: 3,
+  &quot;permissions&quot;: [&quot;proxy&quot;, &quot;storage&quot;, &quot;webRequest&quot;, &quot;webRequestAuthProvider&quot;],
+  &quot;host_permissions&quot;: [&quot;https://shifter.io/*&quot;, &quot;&lt;all_urls&gt;&quot;]
+}</code></pre>
+<p><code>host_permissions</code> for <code>https://shifter.io/*</code> lets the extension call the API without cross-site (CORS) restrictions. <code>&lt;all_urls&gt;</code> is needed to answer the proxy login.</p>
+<p>Turning the proxy on (service worker):</p>
+<pre><code>async function enableProxy(host, port) {
+  await chrome.proxy.settings.set({
+    scope: &#x27;regular&#x27;,
+    value: {
+      mode: &#x27;fixed_servers&#x27;,
+      rules: {
+        singleProxy: { scheme: &#x27;http&#x27;, host, port },       // e.g. p.shifter.io, 443
+        bypassList: [&#x27;localhost&#x27;, &#x27;127.0.0.1&#x27;, &#x27;shifter.io&#x27;, &#x27;*.shifter.io&#x27;]
+      }
+    }
+  });
+}
+
+async function disableProxy() {
+  await chrome.proxy.settings.clear({ scope: &#x27;regular&#x27; });
+}</code></pre>
+<p>Answering the proxy login:</p>
+<pre><code>// username = the plan&#x27;s username plus the chosen targeting, e.g.
+// &quot;customer-demo-country-us-sid-a1b2c3&quot;; password from proxy-config.
+chrome.webRequest.onAuthRequired.addListener(
+  (details, callback) =&gt; {
+    if (!details.isProxy) return callback({});
+    chrome.storage.local.get([&#x27;proxyUser&#x27;, &#x27;proxyPass&#x27;], (s) =&gt; {
+      callback({ authCredentials: { username: s.proxyUser, password: s.proxyPass } });
+    });
+  },
+  { urls: [&#x27;&lt;all_urls&gt;&#x27;] },
+  [&#x27;asyncBlocking&#x27;]
+);</code></pre>
+<ul><li><strong>Bypass <code>shifter.io</code>:</strong> keep <code>shifter.io</code> in the bypass list, so the extension can always reach the API even when the proxy has a problem.</li><li><strong>HTTP only:</strong> Chrome can&#x27;t send a username and password to a SOCKS5 proxy, so use HTTP.</li><li><strong>Checking it works:</strong> with the proxy on, fetch <code>https://ip-info.com/json</code> and show the IP and country the customer now appears from.</li></ul>
+<p>---</p>
+<h2 id="6-suggested-popup-flow">6. Suggested popup flow</h2>
+<ol><li>No key stored: show the sign-in screen with the two cases from section 1.</li><li>Key entered: call <code>/user/me</code>. On 401 show the error; on 200 save the key.</li><li>Overview: call <code>/user/me</code>, <code>/user/memberships</code> and <code>/user/usage</code> together. Show the name, wallet balance, and one card per plan that isn&#x27;t cancelled, with its status, &quot;Renews/Expires&quot; date and traffic left (from <code>usage</code> by <code>id</code>).</li><li>Connect: call <code>/user/proxy-config</code>, let the customer pick a plan, then targeting (from the geo lists) and an optional sticky session, and switch the proxy on.</li><li>Log out: clear the proxy settings and delete the stored key and credentials.</li></ol>
+<p>---</p>
+<p>API documentation: https://shifter.io/docs.</p></main></body></html>

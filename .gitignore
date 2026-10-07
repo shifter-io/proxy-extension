@@ -10,3 +10,20 @@ dist
 .DS_Store
 web-ext.config.ts
 .env.local
+
+# Credentials, browser profiles, local exports and review artifacts
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.har
+*.zip
+*.crx
+*.xpi
+playwright-report/
+test-results/
+coverage/
+.audit/

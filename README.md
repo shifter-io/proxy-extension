@@ -1,134 +1,262 @@
-# Shifter — Proxy & VPN browser extension
+<p align="center">
+  <a href="https://shifter.io/?utm_source=github&amp;utm_medium=referral&amp;utm_campaign=proxy_extension&amp;utm_content=readme_header">
+    <img src="docs/assets/readme-header.svg" alt="Shifter Proxy Extension — Residential and ISP proxies for Chrome and Firefox" width="960">
+  </a>
+</p>
 
-Browse through Shifter **Residential** and **ISP** proxies like a VPN, using an existing Shifter membership.
-Sign in with your Shifter API key, pick a membership, choose where your traffic exits (country → state → city, plus ASN), and connect.
+<h1 align="center">Residential &amp; ISP Proxy Browser Extension</h1>
 
-> **Status:** live. The extension talks to the Shifter API (`shifter_docs/shifter-extension-api.md`) and routes the browser through the Shifter gateway. The mock backend is still available for UI work (`npm run build:mock`).
+<p align="center">
+  Your browser. Your proxy. Your location.<br>
+  <strong>Chrome and Firefox. Residential and ISP proxies. One-click connection.</strong>
+</p>
 
-## Stack
+<p align="center">
+  <a href="#install-the-proxy-extension">Install</a> ·
+  <a href="#why-shifter-proxy-extension">Features</a> ·
+  <a href="#residential-proxies-and-isp-proxies">Residential &amp; ISP</a> ·
+  <a href="https://ip-info.com/?utm_source=github&amp;utm_medium=referral&amp;utm_campaign=proxy_extension&amp;utm_content=readme_nav_lookup">IP Lookup</a> ·
+  <a href="https://shifter.io/docs?utm_source=github&amp;utm_medium=referral&amp;utm_campaign=proxy_extension&amp;utm_content=readme_nav_docs">Shifter Docs</a>
+</p>
 
-- [WXT](https://wxt.dev) (Manifest V3, Chrome + Firefox from one codebase)
-- React 19 + TypeScript
-- Tailwind 3 with the **Shifter Panel design tokens**, copied 1:1 from `Shifter Panel/tailwind.config.js` and `resources/css/panel-tailwind.css`
-- Assets taken from the panel: `shifter-wordmark.svg`, `shifter-glyph.svg`, `favicon.svg` (icons), Geist/Geist Mono woff2, and the flag PNG set
+**Shifter Proxy Extension** connects your browser to [Shifter Residential Proxies](https://shifter.io/services/residential-proxies?utm_source=github&utm_medium=referral&utm_campaign=proxy_extension&utm_content=readme_intro_residential) and [ISP Proxies](https://shifter.io/services/isp-proxies?utm_source=github&utm_medium=referral&utm_campaign=proxy_extension&utm_content=readme_intro_isp). Select a proxy plan, choose a location or an available ISP proxy, and connect from your browser toolbar. See your exit IP, manage sticky or rotating residential sessions, and switch locations without manually editing browser proxy settings.
 
-## Scripts
+The extension source is free under the MIT license. **Live proxy connections require a Shifter account, an API key, and an active supported proxy plan.** This is a browser proxy manager, not a device-wide VPN. Traffic from other applications is not routed through the extension.
 
-```bash
-npm install
-npm run dev            # Chrome with the extension loaded + HMR
-npm run dev:firefox
-npm run build          # build/chrome-mv3 (live API + real proxy) → Chrome: Load unpacked
-npm run build:mock     # build-mock/chrome-mv3: mock data, pretend proxy
-npm run dev:mock       # dev server on mock data
-npm run zip            # store-ready zip
-npm run compile        # typecheck
-npm run geo:catalog -- <weights.json> <geo-data.json>   # rebuild src/lib/geo/catalog.json (see below)
-npm run icons          # regenerate public/icon/* from src/assets/shifter-app-icon.svg
-npm run preview:ui     # mock build + popup in a normal tab at http://localhost:4178/popup.html (?reset clears state, ?demo opens signed in)
+## Contents
+
+- [Why Shifter Proxy Extension?](#why-shifter-proxy-extension)
+- [Install the proxy extension](#install-the-proxy-extension)
+- [Connect your browser to a proxy](#connect-your-browser-to-a-proxy)
+- [Residential proxies and ISP proxies](#residential-proxies-and-isp-proxies)
+- [Proxy workflows for SEO and website testing](#proxy-workflows-for-seo-and-website-testing)
+- [Check your proxy exit IP](#check-your-proxy-exit-ip)
+- [Browser support and connection limits](#browser-support-and-connection-limits)
+- [Privacy and browser permissions](#privacy-and-browser-permissions)
+- [About Shifter and its products](#about-shifter-and-its-products)
+- [Development](#development)
+- [FAQ](#faq)
+- [Contributing and support](#contributing-and-support)
+- [License](#license)
+
+## Why Shifter Proxy Extension?
+
+Review a localized storefront, check how a page responds from another country, or keep a browsing session on a selected proxy. Shifter puts the proxy controls beside your address bar, with your existing Residential and ISP plans in one place.
+
+| Capability | What it helps you do |
+| --- | --- |
+| **One-click proxy connection** | Connect or disconnect the browser from the toolbar. |
+| **Residential proxy locations** | Choose country, state, city, and ASN where your plan supports those targeting levels. |
+| **ISP proxy selection** | Browse the ISP proxies assigned to your plan, grouped by location and network. |
+| **Sticky and rotating sessions** | Keep a residential session for a chosen duration or rotate without a sticky session identifier. |
+| **New IP control** | Start a new residential session without re-entering your account details. |
+| **Exit IP and connection status** | See the observed proxy IP, country, connection time, and toolbar status. |
+| **Plan visibility** | Check traffic allowance, plan status, and renewal or expiry information. |
+| **Connection settings** | Configure entry points, strict location targeting, WebRTC protection, and proxy bypass rules. |
+| **Inspectable source** | Review the browser permissions, API client, proxy controller, and local tests. |
+
+Location availability and session controls depend on your plan. Changing proxy credentials can require a browser restart; see [connection limits](#browser-support-and-connection-limits).
+
+## Install the proxy extension
+
+Build from source with **Node.js 24 and npm**. A normal build uses the bundled assets and location catalog; no private datasets or infrastructure repositories are needed.
+
+```sh
+git clone https://github.com/shifter-io/proxy-extension.git
+cd proxy-extension
+npm ci
+npm run build
 ```
 
-### Mock scenarios (`build:mock` / `dev:mock` only; chosen by the API key's prefix)
+### Chrome, Brave, and Microsoft Edge
 
-The mock accepts any key of 32+ letters/digits (real panel keys are 64).
+1. Open the browser's extensions page: `chrome://extensions`, `brave://extensions`, or `edge://extensions`.
+2. Enable **Developer mode**.
+3. Select **Load unpacked** and choose `build/chrome-mv3`.
+4. Pin **Shifter — Proxy & VPN** to the toolbar, then open it.
 
-| Key starts with  | Result                                               |
-| ---------------- | ---------------------------------------------------- |
-| `single`         | One Residential membership, goes straight to Connect |
-| `country`        | One Residential Country Geo membership               |
-| `nongeo`         | One Residential Non-Geo membership                   |
-| `isp`            | One ISP membership                                   |
-| `none`           | No active memberships (empty state)                  |
-| `invalid`        | Rejected: "This API key is not valid"                |
-| anything else    | Full Geo + Country Geo + Non-Geo + 2× ISP + 1 expired |
+The Chromium build uses Manifest V3. Chrome is covered by the automated browser suite; Edge and Brave use the same extension APIs but are not independently covered by that suite.
 
-Example: `demo0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUV`
+### Firefox
 
-## Screens
-
-1. **Sign in with API key**: paste the key from Panel → Profile → API Key (`users.api_token`). It's verified on paste or on Continue, then the popup goes straight to the plans. No key yet? "Create a free account" opens `shifter.io/register`. The key is kept in `chrome.storage.local` and only shown masked in Settings.
-2. **Memberships**: shown when the user has more than one usable plan. Shows traffic left, expiry/renewal and status; expired plans link to renew.
-3. **Connect (home)**: power button, exit IP and uptime, location card, session chip, plan usage. The header switches membership.
-4. **Location (Residential)**: one search box across countries, states, cities and ASNs, or browse Country → State → City with ASN as an extra filter. The chip bar shows exactly what will be targeted. Respects pools: *Full Geo* (all levels), *Country Geo* (country only), *Non-Geo* (locked).
-5. **IP picker (ISP)**: static IPs grouped by city, with a country filter and search.
-6. **Settings**: default sticky/rotating session and TTL, strict location, WebRTC protection, bypass list, account and sign-out.
-
-## Browser support
-
-| Browser | Build | Status |
-|---|---|---|
-| Chrome, Brave | `build/chrome-mv3` | end-to-end tested (Chrome for Testing 154) |
-| Microsoft Edge | `build/edge-mv3` | same engine and APIs as Chrome; not run in Edge itself |
-| Firefox 140+ | `build/firefox-mv2` | end-to-end tested (Firefox 157); `web-ext lint`: 0 errors. ISP limit below |
-| Safari | n/a | Safari's extension API can't set a proxy; use the Shifter VPN app |
-
-**Changing the proxy username while connected** (location, New IP, strict, session): browsers remember the proxy login per gateway address and re-send it on new connections without asking the extension, and keep open connections alive.
-- Chrome/Edge and Firefox: the extension changes the gateway *address* (`src/lib/proxy/gateways.ts`) when credentials change. It reuses an address with the same remembered username, or chooses an unused hostname/port. Residential entry points offer a finite pool; pinning an entry point reduces it. Chrome/Edge refuse a switch and request a browser restart if every address has conflicting cached credentials; Firefox retains its restart warning.
-- Version 0.1.1 removes all browsing-data deletion and the `browsingData` permission. No cookies are cleared on connect, switch, or disconnect. The prior gateway-origin cookie deletion also removed dashboard cookies across the `shifter.io` registrable domain.
-- ISP plans exposing only `isp.shifter.io:443` need a browser restart to change to a different proxy username. Chrome/Edge reject the switch until restart; Firefox warns that the old IP may remain.
-- Entry point latency is shown in Settings → Entry point.
-
-End-to-end tests (`e2e/`) run the real extension in Chrome for Testing and Firefox against a stand-in Shifter API and a login-protected local gateway: `cd e2e && npm install`, then `npm run e2e` from the root (`npm run e2e -- firefox`, `-- --offline`). See `e2e/README.md`. Test builds go to `build-test/` and `build-test-live/`, never `build/`.
-
-## Architecture
-
-```
-src/
-  entrypoints/
-    background.ts        owns the proxy: connect / disconnect, answers the gateway login, IP check
-    popup/               React entry (380×600)
-  lib/
-    types.ts             domain models (Membership, Geo*, Target, ProxySettings…)
-    api/types.ts         ShifterApi interface  ← the only contract the UI uses
-    api/index.ts         HttpShifterApi, or MockShifterApi when WXT_USE_MOCK=true
-    api/http/            live client + wire types for the documented endpoints
-    api/mock/            in-memory implementation + fixtures
-    proxy/username.ts    residential username builder (country-/region-/city-/asn-/sid-/ttl-)
-    proxy/controller.ts  BrowserProxyController (chrome.proxy / Firefox proxy.onRequest) + mock
-    proxy/messages.ts    typed popup → background messages
-    storage.ts           typed chrome.storage items (session, settings, targets, connection, active proxy)
-  ui/
-    state/AppState.tsx   routing stack + app state, synced with storage
-    screens/, components/
+```sh
+npm run build:firefox
 ```
 
-### How the API is used
+Open `about:debugging#/runtime/this-firefox`, select **Load Temporary Add-on**, and choose `build/firefox-mv2/manifest.json`. Temporary installations are removed when Firefox restarts. Standard persistent Firefox installations require a signed package. The manifest requires Firefox 140 or later on desktop.
 
-| Endpoint | Used for |
-|---|---|
-| `GET /api/v1/user/me` | verifying the key at sign-in; name, email and wallet in Settings (refreshed on every popup open) |
-| `GET /api/v1/user/memberships` | plan list: product, status, `renews_at` / `expires_at` / trial, `pool` (Full Geo / Country Geo / Non-Geo) |
-| `GET /api/v1/user/usage` | traffic left per plan (joined by hash); `metered: false` shows "Unlimited" |
-| `GET /api/v1/user/proxy-config` | which plans are live, gateway host/port, login, entry points, sticky-session flag, ISP proxies |
-| `GET /api/v1/residential/geo/asns` | only to name an ISP plan's carrier when the bundled catalog doesn't know its ASN (cached a day) |
+[Build and packaging instructions](BUILD.html) cover production archives and reviewer sources. Store publication and signing are separate from these local builds.
 
-- A plan is usable when it's listed in proxy-config and not past `expires_at`. Cancelled plans work until then ("Expiring soon"); unpaid / not-yet-active plans show the panel status. Other product lines are hidden.
-- Any 401 signs the customer out. 429 and network errors show a retry message.
-- The Renew / "Open in panel" link goes to `/panel/membership/{hash}` (the memberships `uri` is an API path, not a page).
+## Connect your browser to a proxy
 
-### Location catalog
+1. Sign in to your [Shifter account](https://shifter.io/login?utm_source=github&utm_medium=referral&utm_campaign=proxy_extension&utm_content=readme_signin) and copy your API key from **Profile → API Key**.
+2. Paste the key into the extension. It verifies the key and loads your supported plans.
+3. Choose a Residential or ISP proxy plan. A single usable plan opens directly.
+4. For Residential, select a supported location and session mode. For ISP, choose an assigned proxy.
+5. Select **Connect** and check the exit IP shown in the popup.
 
-Locations (browse and search) come from `src/lib/geo/catalog.json`, bundled with the extension and loaded when the picker opens. It's built from the gateway's own inventory, so every pick has IPs behind it:
+Use **Disconnect** to clear the extension's proxy configuration. To remove the stored API key, sign out from Settings. Do not share your key, account screenshots, or proxy credentials in GitHub issues.
 
-- source: `config/weights.json` in authorized gateway inventory (`country → region → city → member → ASN → provider = unique IPs`, summed over enabled providers), plus the panel's `resources/geo/geo-data.json` for country and ASN names
-- kept: every country with IPs, and each state, city, country+ISP and city+ISP combination with **at least 50 unique IPs** (third argument changes the threshold)
-- search covers all of it, ranked by name match then IP count; "comcast new york" finds the city+ISP combination
-- with a city picked, the ASN tab lists only ISPs with IPs in that city
+## Residential proxies and ISP proxies
 
-Rebuild when the inventory changes:
+| | Residential proxies | ISP proxies |
+| --- | --- | --- |
+| **Selection** | Country, state, city, and ASN where supported by the plan. | A proxy assigned to your plan, selected from the location and network list. |
+| **Sessions** | Sticky sessions with a configurable duration, or rotating mode. | Uses the selected proxy's assigned credentials. |
+| **Switching** | Change targeting or select New IP to request a new session. | Select another available ISP proxy. |
+| **Useful for** | Regional browsing checks, localization reviews, and comparing website behavior across markets. | Browsing workflows that need a selected ISP proxy and location. |
 
-```bash
-npm run geo:catalog -- ./private-data/weights.json "./private-data/geo-data.json"
+Residential plans expose different targeting scopes: **Full Geo** supports country, state, city, and ASN; **Country Geo** supports country selection; **Non-Geo** does not expose location targeting. The extension follows those plan capabilities. Legacy Static Residential plans and other product lines without supported gateway credentials are not listed.
+
+A sticky session requests continuity for its configured duration; it does not guarantee that an exit IP will remain available indefinitely. ISP proxy switching is subject to the browser's credential cache, described below.
+
+## Proxy workflows for SEO and website testing
+
+- **Regional SEO checks.** Inspect localized search pages and landing pages from a selected market. Results may still depend on language, account state, cookies, and search-engine personalization.
+- **Website localization QA.** Compare language, currency, redirects, and regional content on your own website.
+- **Storefront and price checks.** Review how your public product pages and offers appear through different residential locations.
+- **Ad verification.** Inspect your own campaigns and landing pages from an available country or network.
+- **Connection troubleshooting.** Compare direct browsing with a proxy connection and verify the observed exit IP.
+
+This extension is intended for interactive browser use. For automated rank tracking, structured search data, or programmatic web scraping, see Shifter's APIs below.
+
+## Check your proxy exit IP
+
+The extension uses [IP Info](https://ip-info.com/?utm_source=github&utm_medium=referral&utm_campaign=proxy_extension&utm_content=readme_exit_ip) to display the IP and country observed through your proxy connection. You can also open IP Info in a proxied browser tab to inspect the reported ASN and network details.
+
+An exit-IP lookup describes the connection observed by that request. IP geolocation is approximate, and a lookup alone does not prove anonymity or whether an address is residential. With rotating sessions, a later request can use a different exit.
+
+## Browser support and connection limits
+
+| Browser | Build | Coverage |
+| --- | --- | --- |
+| Chrome | `build/chrome-mv3` | Automated Chrome for Testing suite. |
+| Brave and Microsoft Edge | `build/chrome-mv3` | Chromium-compatible build; not independently tested in these browsers. |
+| Firefox 140+ | `build/firefox-mv2` | Automated Firefox suite. |
+| Safari | Not provided | This project does not include a Safari build. |
+
+Browsers cache proxy credentials and keep existing connections alive. The extension uses available gateway hostname and port combinations to apply changed credentials. When those combinations are exhausted, Chrome requests a browser restart. Firefox can retain a previous proxy login until restart. Pinning an entry point reduces the available combinations; ISP plans with one gateway address are especially affected when switching usernames.
+
+The extension does not clear website cookies when connecting, switching, or disconnecting. It also does not provide a device-wide kill switch. A failed initial exit-IP check clears the proxy configuration; a failed periodic check retains the last displayed IP.
+
+## Privacy and browser permissions
+
+Your API key is stored in the extension's local browser storage and sent to Shifter to authenticate account requests. Proxy credentials are used to authenticate the selected gateway. Local browser storage is not an encrypted credential vault. The extension contains no analytics SDK or bundled customer credentials.
+
+| Permission | Why it is requested |
+| --- | --- |
+| `proxy` | Apply or clear the browser proxy configuration. |
+| `storage` | Keep the API session, settings, selected locations, and connection state locally. |
+| `webRequest` and proxy-auth permission | Answer proxy authentication challenges. Chrome uses `webRequestAuthProvider`; Firefox uses `webRequestBlocking`. |
+| `privacy` | Apply WebRTC protection while connected. |
+| `alarms` | Schedule gateway latency checks. |
+| Host access, including `<all_urls>` | Authenticate proxy traffic to arbitrary websites and perform the IP check; access to Shifter supports account API calls. |
+
+Local destinations and Shifter's account/API domains bypass the proxy by default. You can add bypass rules in Settings. WebRTC protection reduces one source of direct network exposure; it is not an anonymity guarantee. Signed-in websites can still recognize your account and information you provide.
+
+## About Shifter and its products
+
+[Shifter](https://shifter.io/?utm_source=github&utm_medium=referral&utm_campaign=proxy_extension&utm_content=readme_about_shifter) builds proxy infrastructure and web data APIs for developers, data teams, and businesses. Its products support web scraping, SEO monitoring, ad verification, price intelligence, and AI data workflows.
+
+| Product | What it offers | Useful for |
+| --- | --- | --- |
+| [**Residential Proxies**](https://shifter.io/services/residential-proxies?utm_source=github&utm_medium=referral&utm_campaign=proxy_extension&utm_content=readme_residential_proxies) | Residential proxy access with geo targeting, rotation, and sticky sessions. | Localized browsing, scraping, and distributed data collection. |
+| [**ISP Proxies**](https://shifter.io/services/isp-proxies?utm_source=github&utm_medium=referral&utm_campaign=proxy_extension&utm_content=readme_isp_proxies) | ISP proxy plans with assigned locations and networks. | Workflows that need a selected proxy endpoint. |
+| [**Web Scraping API**](https://shifter.io/services/scraping-api?utm_source=github&utm_medium=referral&utm_campaign=proxy_extension&utm_content=readme_scraping_api) | Managed web content retrieval with proxy handling and rendering options. | Programmatic page collection. |
+| [**SERP API**](https://shifter.io/services/serp-api?utm_source=github&utm_medium=referral&utm_campaign=proxy_extension&utm_content=readme_serp_api) | Structured search engine results through an API. | Rank tracking, keyword research, and search data pipelines. |
+
+[Explore Shifter](https://shifter.io/?utm_source=github&utm_medium=referral&utm_campaign=proxy_extension&utm_content=readme_shifter_cta) · [View pricing](https://shifter.io/pricing?utm_source=github&utm_medium=referral&utm_campaign=proxy_extension&utm_content=readme_pricing) · [Read the documentation](https://shifter.io/docs?utm_source=github&utm_medium=referral&utm_campaign=proxy_extension&utm_content=readme_shifter_docs)
+
+For a quick check without installing an extension, try the [Free Web Proxy](https://shifter.io/web-proxy?utm_source=github&utm_medium=referral&utm_campaign=proxy_extension&utm_content=readme_web_proxy). Its companion repository is [shifter-io/web-proxy](https://github.com/shifter-io/web-proxy). The [shifter-io/ip-info](https://github.com/shifter-io/ip-info) project provides the IP lookup service used by this extension.
+
+## Development
+
+Built with WXT, React, TypeScript, and Tailwind CSS. The browser popup and background controller share typed account and proxy state.
+
+```sh
+npm ci
+npm run dev             # Chromium extension with live reload
+npm run dev:firefox     # Firefox development
+npm run compile        # TypeScript check
+npm run build          # Production Chromium build
+npm run build:firefox   # Production Firefox build
+npm run zip            # Chromium package
+npm run zip:firefox     # Firefox package
 ```
 
-### How the proxy works
+### Preview without an account
 
-- Chrome: `proxy.settings` fixed_servers, `http://<host>:<port>` (443), bypass list = `localhost`, `127.0.0.1`, `[::1]`, `shifter.io`, `*.shifter.io` + the user's list. Firefox: `proxy.onRequest` with the same rules (`src/lib/proxy/bypass.ts`).
-- Bypass entries: `example.com`, `*.example.com` (includes `example.com` on both browsers), an IPv4 address, or an IPv4 range like `192.168.0.0/16`. Defaults: `localhost`, `127.0.0.1`, `*.local` and the private ranges `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`.
-- `webRequest.onAuthRequired` answers the gateway login from `local:activeProxy`; a second challenge for the same request means the login was rejected, and the connection goes to an error state.
-- Residential username: `customer-<user>[-country-…][-region-…][-city-…][-asn-…][-sid-…][-ttl-…][-strict-true]`. "New IP" = new `sid`. Rotating mode drops `sid`/`ttl`. Strict location adds `-strict-true` (only the exact scope). The entry point setting swaps the host.
-- ISP: the chosen proxy's own username on `isp.shifter.io:443`. proxy-config has no address per proxy, so the picker lists carrier + city, numbered `#1`, `#2`… when several share country, city and ASN; the IP is shown only while connected.
-- After applying, the worker fetches `https://ip-info.com/json` to show the exit IP and flag; if that fails the proxy is removed again so the browser isn't left offline.
-- While connected the worker re-checks `https://ip-info.com/json` every 15 s (and when the popup opens) and updates the shown IP and flag when the exit changes; a failed re-check keeps the last IP.
-- WebRTC protection sets `privacy.network.webRTCIPHandlingPolicy = disable_non_proxied_udp` while connected.
-- Changing session, TTL, strict, entry point, bypass list or WebRTC while connected re-applies at once (same sticky session).
+```sh
+npm run preview:ui
+```
+
+Open `http://localhost:4178/popup.html`. The preview uses synthetic account data and simulated proxy connections; it does not route your browser traffic. Add `?reset` to clear preview state, or `?demo` to open a signed-in mock plan. Do not enter a real API key into the mock preview.
+
+Mock keys contain at least 32 letters or digits. Prefix a key with `single`, `country`, `nongeo`, `isp`, `none`, or `invalid` to exercise the corresponding plan or error scenario. All mock exit IPs use documentation-only address space.
+
+### End-to-end checks
+
+```sh
+cd e2e
+npm ci
+npm test -- --offline
+```
+
+The test suite runs Chrome for Testing and Firefox against a synthetic Shifter API and local proxy gateway. The offline option skips the real-service invalid-key check. Test builds use separate output directories. See the [test guide](docs/testing.html).
+
+| Directory | Contents |
+| --- | --- |
+| `src/entrypoints/` | Popup entry point and background worker. |
+| `src/lib/api/` | Live Shifter API client and synthetic mock backend. |
+| `src/lib/proxy/` | Gateway selection, proxy authentication, bypass rules, and session usernames. |
+| `src/lib/geo/` | Bundled country, region, city, and ASN catalog. |
+| `src/ui/` | Screens, shared components, and application state. |
+| `e2e/` | Browser drivers, synthetic API, local gateway, and integration checks. |
+| `scripts/` | Build helpers, local preview, and documentation generators. |
+| `docs/` | Standalone HTML guides and the README banner. |
+
+The checked-in catalog contains location and ASN labels, not customer IPs or raw inventory exports. Regenerating it is a maintainer task requiring authorized input data; it is not part of the normal build. The [API integration reference](docs/api.html) uses synthetic account examples.
+
+Run `python3 scripts/render-readme.py` after editing the README or reference documents to refresh the [offline documentation](docs/readme.html). The banner generator uses the bundled Geist font; optional `fonttools` and `brotli` packages are needed only when regenerating the banner.
+
+## FAQ
+
+### Is this a free proxy extension?
+
+The extension's source code is free under MIT. Actual Residential and ISP proxy traffic requires an active Shifter plan. The mock preview works without an account but does not provide a working proxy connection.
+
+### Can I use residential proxies in Chrome and Firefox?
+
+Yes. Install the matching build, sign in with your Shifter API key, choose a supported Residential plan, and select the available targeting and session options.
+
+### Does it support ISP proxies?
+
+Yes. Supported ISP plans expose a list of assigned proxies. Select an entry to use its gateway credentials. Some username changes require a browser restart because browsers cache proxy authentication.
+
+### Is this a VPN for my whole device?
+
+No. It controls this browser's proxy settings. Other applications, other browser profiles, and bypassed destinations are outside that configuration.
+
+### Can I import any proxy list or use another provider?
+
+Not currently. This extension integrates with Shifter accounts, plan capabilities, and gateway credentials. It is not a generic proxy-list importer.
+
+### Can a residential proxy extension help with SEO checks?
+
+It can help you inspect localized search pages and website content from a selected proxy location. Cookies, account state, language, and personalization still influence results. Use a SERP API when you need structured or repeatable rank-tracking data.
+
+### Will changing locations log me out of websites?
+
+The extension does not delete cookies. A website may still require another sign-in or verification when it sees a different network or location.
+
+## Contributing and support
+
+Bug reports, documentation improvements, and pull requests are welcome at [shifter-io/proxy-extension](https://github.com/shifter-io/proxy-extension). Include reproduction steps, browser version, and expected behavior. Run the relevant checks before submitting a change.
+
+Use [Shifter's support resources](https://shifter.io/docs?utm_source=github&utm_medium=referral&utm_campaign=proxy_extension&utm_content=readme_support) for account and service questions. Remove API keys, proxy passwords, personal account details, IP addresses, and browsing history from public reports.
+
+If this project helps your workflow, star the repository or share it with someone who needs a Residential or ISP proxy browser extension.
+
+## License
+
+Project source is released under the [MIT License](LICENSE). Third-party dependencies, fonts, and assets retain their own licenses. Shifter branding retains its respective rights. See [third-party asset notices](docs/third-party-notices.html).

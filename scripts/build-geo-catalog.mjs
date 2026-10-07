@@ -4,7 +4,7 @@
 //
 //   node scripts/build-geo-catalog.mjs <weights.json> <panel geo-data.json> [minIps=50]
 //
-// weights.json: authorized gateway inventory config/weights.json
+// weights.json: authorized gateway inventory export (not distributed)
 //   locations[CC][region][city][member][ASxxxx][provider] = unique IPs
 // geo-data.json: Shifter Panel resources/geo/geo-data.json
 //

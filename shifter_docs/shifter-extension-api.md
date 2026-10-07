@@ -1,5 +1,7 @@
 # Shifter API for the browser extension
 
+All account names, IDs, balances, usernames and credentials below are synthetic examples. They are not customer records.
+
 Everything the extension needs to sign a customer in, show their account and set up their proxy.
 
 - **Base URL:** `https://shifter.io`
@@ -331,7 +333,7 @@ chrome.webRequest.onAuthRequired.addListener(
 
 - **Bypass `shifter.io`:** keep `shifter.io` in the bypass list, so the extension can always reach the API even when the proxy has a problem.
 - **HTTP only:** Chrome can't send a username and password to a SOCKS5 proxy, so use HTTP.
-- **Checking it works:** with the proxy on, fetch `https://ipinfo.io/json` and show the IP and country the customer now appears from.
+- **Checking it works:** with the proxy on, fetch `https://ip-info.com/json` and show the IP and country the customer now appears from.
 
 ---
 
