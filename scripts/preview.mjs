@@ -19,7 +19,7 @@ createServer(async (req, res) => {
     if (path.endsWith('.html')) {
       // Frame the 380x600 popup in the middle of the page and load the shim first.
       body = body.toString()
-        .replace('<head>', `<head><script>${shim}</script><style>html{background:#05070d!important;min-height:100vh;display:grid;place-items:center}#root{box-shadow:0 0 0 1px rgba(255,255,255,.08),0 30px 80px -20px #000}</style>`);
+        .replace('<head>', `<head><script>${shim}</script><style>html{background:#05070d!important;width:100%!important;height:auto!important;min-height:100vh;overflow:auto!important;display:grid;place-items:center}#root{box-shadow:0 30px 80px -20px #000}</style>`);
     }
     res.writeHead(200, { 'content-type': types[extname(path)] ?? 'application/octet-stream' });
     res.end(body);

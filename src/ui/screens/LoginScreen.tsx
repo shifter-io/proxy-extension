@@ -79,10 +79,12 @@ export function LoginScreen() {
 
   return (
     <Screen atmosphere="default" surface="card" bodyClassName="flex flex-col">
-      <div className="flex-1 flex flex-col px-6 pt-7 pb-5">
-        <Wordmark height={26} />
+      <div className="flex-1 flex flex-col justify-between gap-7 px-6 pt-8 pb-6">
+        <div className="shrink-0 flex justify-center">
+          <Wordmark height={26} />
+        </div>
 
-        <div className="mt-8 animate-sf-slide-up">
+        <div className="shrink-0 animate-sf-slide-up">
           <span className="sf-eyebrow">Proxy &amp; VPN</span>
           <h1 className="mt-4 text-[22px] leading-tight font-semibold" style={{ letterSpacing: '-0.025em' }}>
             Connect your Shifter account
@@ -92,7 +94,7 @@ export function LoginScreen() {
           </p>
         </div>
 
-        <form onSubmit={submit} noValidate className="mt-7">
+        <form onSubmit={submit} noValidate className="shrink-0">
           <div className="relative">
             <input
               ref={inputRef}
@@ -173,21 +175,23 @@ export function LoginScreen() {
           </button>
         </form>
 
-        <div className="flex items-center gap-3 mt-10 mb-6">
-          <span className="flex-1 h-px bg-sf-border-subtle" />
-          <span className="text-[10.5px] tracking-[0.18em] uppercase text-sf-text-muted">New to Shifter?</span>
-          <span className="flex-1 h-px bg-sf-border-subtle" />
+        <div className="shrink-0">
+          <div className="flex items-center gap-3 mb-6">
+            <span className="flex-1 h-px bg-sf-border-subtle" />
+            <span className="text-[10.5px] tracking-[0.18em] uppercase text-sf-text-muted">New to Shifter?</span>
+            <span className="flex-1 h-px bg-sf-border-subtle" />
+          </div>
+
+          <button type="button" className="sf-oauth-btn" onClick={() => openExternal(SHIFTER_URLS.register)}>
+            <span>Create a free account</span>
+            <Icon name="external" size={14} className="text-sf-text-tertiary" />
+          </button>
+          <p className="mt-3 text-center text-[12px] leading-relaxed text-sf-text-muted">
+            Sign up, then copy your key from Profile → API Key.
+          </p>
         </div>
 
-        <button type="button" className="sf-oauth-btn" onClick={() => openExternal(SHIFTER_URLS.register)}>
-          <span>Create a free account</span>
-          <Icon name="external" size={14} className="text-sf-text-tertiary" />
-        </button>
-        <p className="mt-3 text-center text-[12px] leading-relaxed text-sf-text-muted">
-          Sign up, then copy your key from Profile → API Key.
-        </p>
-
-        <p className="mt-auto pt-4 flex items-center justify-center gap-1.5 text-[11.5px] text-sf-text-muted">
+        <p className="shrink-0 flex items-center justify-center gap-1.5 text-[11.5px] text-sf-text-muted">
           <Icon name="lock" size={12} />
           Your key is stored only in this browser.
         </p>

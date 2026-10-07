@@ -50,7 +50,14 @@
   }
 
   html, body {
+    /* Fill the entire action-popup document, including its outermost pixels.
+       The browser-owned frame outside this document is not CSS-stylable. */
+    width: var(--sf-popup-w);
+    height: var(--sf-popup-h);
     margin: 0;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
     background: var(--sf-bg-deepest);
     color: var(--sf-text-primary);
     font-family: 'Geist', ui-sans-serif, system-ui, sans-serif;
