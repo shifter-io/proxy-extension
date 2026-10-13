@@ -5,7 +5,7 @@ import type {
   GeoRegion,
   GeoSearchResult,
   IspIp,
-  Membership,
+  MembershipCatalog,
   ProxyCredentials,
   Session,
   User,
@@ -56,15 +56,18 @@ export class MockShifterApi implements ShifterApi {
     return this.user();
   }
 
-  async memberships(): Promise<Membership[]> {
+  async memberships(): Promise<MembershipCatalog> {
     await delay(500);
     const local = this.scenario;
-    if (local === 'single') return MEMBERSHIPS.filter((m) => m.id === 'm_res_1');
-    if (local === 'country') return MEMBERSHIPS.filter((m) => m.id === 'm_res_country');
-    if (local === 'nongeo') return MEMBERSHIPS.filter((m) => m.id === 'm_res_nongeo');
-    if (local === 'isp') return MEMBERSHIPS.filter((m) => m.id === 'm_isp_us');
-    if (local === 'none') return MEMBERSHIPS.filter((m) => m.status === 'expired');
-    return MEMBERSHIPS;
+    const memberships = MEMBERSHIPS.filter((m) => {
+      if (local === 'single') return m.id === 'm_res_1';
+      if (local === 'country') return m.id === 'm_res_country';
+      if (local === 'nongeo') return m.id === 'm_res_nongeo';
+      if (local === 'isp') return m.id === 'm_isp_us';
+      if (local === 'none') return m.status === 'expired';
+      return true;
+    });
+    return { memberships, workspaces: [] };
   }
 
   // Same bundled catalog as the live API.

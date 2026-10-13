@@ -10,7 +10,7 @@ import { openExternal, SHIFTER_URLS } from '../links';
 import { defaultTarget, useApp } from '../state/AppState';
 
 export function HomeScreen() {
-  const { activeMembership: m, memberships, connection, push, connect, disconnect, targetFor, settings } = useApp();
+  const { activeMembership: m, memberships, workspaces, connection, push, connect, disconnect, targetFor, settings } = useApp();
 
   // Fresh exit IP as soon as the popup opens; the worker re-checks every 15 s after that.
   const isConnected = connection.status === 'connected';
@@ -23,7 +23,9 @@ export function HomeScreen() {
   const target = targetFor(m.id) ?? defaultTarget(m);
   const connectedHere = connection.status !== 'disconnected' && connection.status !== 'error' && connection.membershipId === m.id;
   const status = connectedHere ? connection.status : connection.status === 'error' ? 'error' : 'disconnected';
-  const canSwitch = (memberships?.filter(isUsable).length ?? 0) > 1;
+  const canSwitch = (memberships?.filter(isUsable).length ?? 0) > 1 || workspaces.length > 1;
+  const teamName = m.workspace && !m.workspace.personal ? m.workspace.name : null;
+  const planTitle = teamName ? `${m.planName} (${teamName})` : m.planName;
 
   function toggle() {
     if (status === 'connected' || status === 'connecting') return void disconnect();
@@ -47,7 +49,9 @@ export function HomeScreen() {
               <span className="min-w-0 flex-1">
                 <span className="block text-[10.5px] tracking-[0.14em] uppercase text-sf-text-muted leading-none mb-1">Membership</span>
                 <span className="flex items-baseline gap-1.5 text-[13.5px] font-semibold leading-none">
-                  <span className="truncate">{m.planName}</span>
+                  <span className="truncate" title={planTitle}>
+                    {m.planName}{teamName && <span className="font-normal text-sf-text-tertiary"> ({teamName})</span>}
+                  </span>
                   <PoolTag m={m} />
                   {canSwitch && <Icon name="chevronDown" size={14} className="text-sf-text-tertiary shrink-0 self-center" />}
                 </span>
@@ -95,6 +99,11 @@ export function HomeScreen() {
       )}
 
       <StatsCard m={m} settings={settings} onSession={() => push({ name: 'settings' })} />
+      {m.workspace && !m.workspace.personal && (
+        <p className="mt-3 text-center text-[12px] text-sf-text-tertiary break-words">
+          Traffic uses {m.workspace.name}’s plan and wallet.
+        </p>
+      )}
       <RenewalLine m={m} onRenew={() => openExternal(SHIFTER_URLS.renew(m))} className="mt-4" />
       </div>
     </Screen>

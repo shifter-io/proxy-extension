@@ -60,6 +60,27 @@ The `/api/v1/user/*` endpoints wrap every response like this:
 
 ---
 
+## Workspace access in the extension
+
+Release dependency: Website PR #2139 must be merged and deployed before workspace plans are available. Deployment confirmation is still pending.
+
+The extension requests `GET /api/v1/user/proxy-config?workspaces=all` and `GET /api/v1/user/memberships?workspaces=all` with the user's `X-Api-Key`. It also retains the existing Bearer header for older deployments. Usage remains `GET /api/v1/user/usage`, which already includes team plans. All three responses are joined by plan hash; credentials, targets and usage stay specific to that plan.
+
+Only the exact `workspaces=all` value opts in. Without it, the API retains the existing response. `?workspace=<id>` selects one accessible workspace; an unknown or inaccessible id returns no plans. The extension currently fetches all workspaces and groups them locally.
+
+Opted-in proxy-config adds a top-level `workspaces` list, including workspaces with no usable plans. Each proxy-config plan and memberships row adds a `workspace` object:
+
+```json
+{ "id": "XyZ12", "name": "Acme Ltd", "role": "viewer", "personal": false }
+```
+
+- `id` is the same workspace id used by usage and the `workspace` filter.
+- `name` is Personal for the user's workspace; team names come from the owner’s name, username or email.
+- `role` is owner for Personal, or viewer, billing or admin for a team member. All roles can connect.
+- `personal` is true only for the user's own workspace.
+
+When team workspaces are available, the plan picker groups by workspace, Personal first, and displays empty workspaces. When Personal is the only workspace, the extension keeps the original ungrouped layout with no Personal heading or workspace suffix, whether it has one plan or several. Product names remain exactly as returned by the API. Home shows the team in parentheses beside the product name, such as Spark (Acme Ltd), and explains that team traffic uses that workspace's plan and wallet. Plan management stays in the Shifter dashboard; viewer and billing roles receive an Open in panel link rather than a Renew action. Older responses without workspace metadata retain the existing plan display.
+
 ## 3. Endpoints
 
 ### `GET /api/v1/user/me`: who is signed in

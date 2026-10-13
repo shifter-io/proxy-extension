@@ -70,6 +70,11 @@ const api = http.createServer((req, res) => {
   };
   const authed = req.headers.authorization === `Bearer ${KEY}` || req.headers['x-api-key'] === KEY;
   if (!authed) return send(401, { error: 'Unauthorized', code: 401 });
+  // Observe only the URL and header presence; never retain API keys.
+  options.onRequest?.(url, { hasApiKey: req.headers['x-api-key'] === KEY });
+  if (options.requireWorkspaceOptIn && ['/api/v1/user/memberships', '/api/v1/user/proxy-config'].includes(url.pathname) && url.searchParams.get('workspaces') !== 'all') {
+    return send(400, { error: 'Workspace opt-in missing', code: 400 });
+  }
   const ok = (data) => send(200, { error: null, code: 200, data });
   switch (url.pathname) {
     case '/api/v1/user/me':

@@ -17,3 +17,7 @@ npm test -- --offline    # skip the real shifter.io check
 ```
 
 Exit code 1 when any check fails. Test builds contain a hook (open the popup in a tab on install) and a stand-in API address; `build/` never does.
+
+## Workspace regression
+
+Run `node e2e/workspaces.mjs` from the repository root, optionally followed by `chrome` or `firefox`. The test uses local API and TLS gateway fixtures with synthetic credentials. It verifies workspace ordering and empty states, all member roles, team traffic and connection credentials, the ISP picker, team-only accounts, revoked access, and compatibility with responses that lack workspace metadata. Requests must opt in with exactly `workspaces=all`; usage remains unfiltered. Test builds and certificates live in a unique temporary directory and are removed in a finally block; isolated browser profiles are closed after each browser.
