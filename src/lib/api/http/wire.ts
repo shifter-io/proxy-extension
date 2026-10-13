@@ -1,3 +1,5 @@
+import type { Workspace } from '../../types';
+
 /**
  * Response shapes of the Shifter API, exactly as documented in
  * shifter_docs/shifter-extension-api.md. Only `api/http` reads these;
@@ -25,6 +27,7 @@ export interface WireMe {
 export type WireColor = 'success' | 'warning' | 'danger' | 'info';
 
 export interface WireMembership {
+  workspace?: Workspace;
   name: string;
   status: string;
   color: WireColor;
@@ -78,6 +81,7 @@ export interface WireEntryPoint {
 }
 
 interface WirePlanBase {
+  workspace?: Workspace;
   membership_id: number;
   hash: string;
   product: string;
@@ -107,4 +111,5 @@ export type WirePlan = WireResidentialPlan | WireIspPlan;
 
 export interface WireProxyConfig {
   plans: WirePlan[];
+  workspaces?: Workspace[];
 }

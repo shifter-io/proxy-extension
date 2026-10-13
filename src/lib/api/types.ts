@@ -5,7 +5,7 @@ import type {
   GeoRegion,
   GeoSearchResult,
   IspIp,
-  Membership,
+  MembershipCatalog,
   ProxyCredentials,
   Session,
   User,
@@ -27,7 +27,7 @@ export interface ShifterApi {
 
   // Account
   me(): Promise<User>;
-  memberships(): Promise<Membership[]>;
+  memberships(): Promise<MembershipCatalog>;
 
   // Residential locations (bundled catalog built from the gateway inventory, lib/geo)
   countries(): Promise<GeoCountry[]>;

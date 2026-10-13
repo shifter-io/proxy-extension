@@ -35,8 +35,9 @@ export const drivers = {
   firefox: {
     name: 'firefox',
     build: 'firefox-mv2',
-    async launch(extDir) {
+    async launch(extDir, options = {}) {
       const browser = await puppeteer.launch({
+        ...options,
         browser: 'firefox',
         headless: true,
         // Lets automation script extension pages.

@@ -12,7 +12,7 @@ import {
   targetsItem,
   withDefaults,
 } from '@/lib/storage';
-import type { ConnectionState, Membership, ProxySettings, Session, Target } from '@/lib/types';
+import type { ConnectionState, Membership, ProxySettings, Session, Target, Workspace } from '@/lib/types';
 import { useStorageItem } from '../hooks/useStorageItem';
 
 // ── Routes ──────────────────────────────────────────────────────────────
@@ -35,6 +35,7 @@ interface AppState {
 
   session: Session | null;
   memberships: Membership[] | null;
+  workspaces: Workspace[];
   membershipsError: string | null;
   reloadMemberships(): Promise<Membership[]>;
   signIn(session: Session): Promise<void>;
@@ -78,6 +79,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [connection] = useStorageItem(connectionItem);
 
   const [memberships, setMemberships] = useState<Membership[] | null>(null);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [membershipsError, setMembershipsError] = useState<string | null>(null);
 
   const push = useCallback((route: Route) => {
@@ -98,14 +100,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     api.useSession(null);
     await Promise.all([setSession(null), setActiveId(null)]);
     setMemberships(null);
+    setWorkspaces([]);
     reset({ name: 'login' });
   }, [reset, setActiveId, setSession]);
 
   const reloadMemberships = useCallback(async () => {
     setMembershipsError(null);
     try {
-      const list = await api.memberships();
+      const { memberships: list, workspaces } = await api.memberships();
       setMemberships(list);
+      setWorkspaces(workspaces);
       return list;
     } catch (err) {
       if (err instanceof ApiError && err.code === 'unauthorized') {
@@ -158,6 +162,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (sessionReady && !session && stack[0]?.name !== 'boot' && stack[0]?.name !== 'login') {
       api.useSession(null);
       setMemberships(null);
+      setWorkspaces([]);
       reset({ name: 'login' });
     }
   }, [session, sessionReady]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -177,6 +182,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     api.useSession(null);
     await Promise.all([setSession(null), setActiveId(null)]);
     setMemberships(null);
+    setWorkspaces([]);
     reset({ name: 'login' });
   }, [reset, setActiveId, setSession]);
 
@@ -252,6 +258,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     reset,
     session,
     memberships,
+    workspaces,
     membershipsError,
     reloadMemberships,
     signIn,

@@ -8,6 +8,7 @@ import type {
   GeoSearchResult,
   IspIp,
   Membership,
+  MembershipCatalog,
   MembershipStatus,
   ProxyCredentials,
   ResidentialPool,
@@ -75,18 +76,26 @@ export class HttpShifterApi implements ShifterApi {
     return toUser(await this.user<WireMe>('/api/v1/user/me'));
   }
 
-  async memberships(): Promise<Membership[]> {
+  async memberships(): Promise<MembershipCatalog> {
     const [plans, usage, config] = await Promise.all([
-      this.user<WireMemberships>('/api/v1/user/memberships'),
+      this.user<WireMemberships>('/api/v1/user/memberships?workspaces=all'),
       this.user<WireUsage>('/api/v1/user/usage'),
       this.proxyConfig(true),
     ]);
     const usageById = new Map((usage.memberships ?? []).map((u) => [u.id, u]));
     const liveByHash = new Map(config.plans.map((p) => [p.hash, p]));
 
-    return Object.entries(plans ?? {})
+    const memberships = Object.entries(plans ?? {})
       .map(([hash, m]) => toMembership(hash, m, liveByHash.get(hash), usageById.get(hash), this.baseUrl))
       .filter((m): m is Membership => m !== null);
+    const workspaces = new Map((config.workspaces ?? []).map((w) => [w.id, w]));
+    for (const m of memberships) {
+      if (m.workspace && !workspaces.has(m.workspace.id)) workspaces.set(m.workspace.id, m.workspace);
+    }
+    return {
+      memberships,
+      workspaces: [...workspaces.values()].sort((a, b) => Number(b.personal) - Number(a.personal) || a.name.localeCompare(b.name)),
+    };
   }
 
   // ── Locations: the bundled catalog (lib/geo), not the geo endpoints ──
@@ -166,7 +175,8 @@ export class HttpShifterApi implements ShifterApi {
     const key = this.apiKey ?? '';
     const c = this.proxyConfigCache;
     if (!fresh && c && c.key === key && Date.now() - c.at < PROXY_CONFIG_TTL) return c.value;
-    const value = this.user<WireProxyConfig>('/api/v1/user/proxy-config').then((d) => ({ plans: d?.plans ?? [] }));
+    const value = this.user<WireProxyConfig>('/api/v1/user/proxy-config?workspaces=all')
+      .then((d) => ({ plans: d?.plans ?? [], workspaces: d?.workspaces ?? [] }));
     this.proxyConfigCache = { at: Date.now(), key, value };
     value.catch(() => {
       if (this.proxyConfigCache?.value === value) this.proxyConfigCache = null;
@@ -176,7 +186,8 @@ export class HttpShifterApi implements ShifterApi {
 
   private async user<T>(path: string, key = this.apiKey): Promise<T> {
     if (!key) throw new ApiError('Not signed in', 'unauthorized');
-    const body = await this.request<Envelope<T>>(path, { Authorization: `Bearer ${key}` });
+    // Retain Bearer for older deployments; workspace endpoints document X-Api-Key.
+    const body = await this.request<Envelope<T>>(path, { Authorization: `Bearer ${key}`, 'X-Api-Key': key });
     if (body.error) throw new ApiError(body.error, body.code === 401 ? 'unauthorized' : 'server');
     return body.data;
   }
@@ -285,6 +296,7 @@ function toMembership(
 
   const base = {
     id: hash,
+    workspace: m.workspace ?? live?.workspace,
     planName: m.product || live?.product || m.name,
     status: statusOf(m, !!live, ended),
     statusLabel: m.status,

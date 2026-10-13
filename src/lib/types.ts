@@ -34,8 +34,23 @@ export type ResidentialPool = 'full' | 'country' | 'non-geo';
 
 export type MembershipStatus = 'active' | 'expiring' | 'expired' | 'suspended';
 
+export interface Workspace {
+  id: string;
+  name: string;
+  role: 'owner' | 'viewer' | 'billing' | 'admin';
+  personal: boolean;
+}
+
+export interface MembershipCatalog {
+  memberships: Membership[];
+  /** Includes accessible workspaces with no usable plans. */
+  workspaces: Workspace[];
+}
+
 interface MembershipBase {
   id: string;
+  /** Absent on servers that have not deployed workspace opt-in yet. */
+  workspace?: Workspace;
   type: ProductType;
   /**
    * Plan title exactly as the API returns it: "Spark", "Starter", "Pro" for

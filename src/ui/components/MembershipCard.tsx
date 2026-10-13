@@ -42,7 +42,7 @@ export function RenewalLine({ m, onRenew, className = '' }: { m: Membership; onR
             onRenew();
           }}
         >
-          {m.status === 'expired' ? 'Renew' : 'Open in panel'} <Icon name="external" size={12} />
+          {m.status === 'expired' && (!m.workspace || m.workspace.personal || m.workspace.role === 'admin') ? 'Renew' : 'Open in panel'} <Icon name="external" size={12} />
         </button>
       )}
     </div>
