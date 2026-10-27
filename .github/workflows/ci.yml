@@ -1,0 +1,277 @@
+# Merge checks for every ready pull request and every push to main
+# (README.md, "Continuous integration").
+#
+# Every job runs on the self-hosted runners labelled [self-hosted, ci-heavy].
+# The runners admit only the maintainer's pull requests from branches of this
+# repository, pushes to main and the maintainer's manual runs. Downloads and
+# the npm cache persist between runs under $CI_CACHE_DIR/proxy-extension; the
+# checkout and $RUNNER_TEMP do not.
+#
+# A runner machine runs one job at a time, and a job that lands on a busy
+# machine waits for it inside the job, so that wait counts toward the job's
+# timeout-minutes. Each job limit therefore allows 30 minutes of waiting on
+# top of its work; the end-to-end suites keep their own step limits.
+#
+# A change that touches only documentation runs only the docs check (the
+# changes job decides). Draft pull requests run nothing until marked ready.
+name: ci
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  # BUILD.html's toolchain; Node 24.21.0 ships npm 11.19.0.
+  NODE_VERSION: 24.21.0
+  NPM_VERSION: 11.19.0
+  # The Firefox release puppeteer pins (puppeteer 25.12.0 in
+  # e2e/package-lock.json: stable_156.0.1); bump both together. SHA-256 from
+  # the release's SHA256SUMS on archive.mozilla.org.
+  FIREFOX_VERSION: 156.0.1
+  FIREFOX_SHA256: 7405c0487fa3e517c1e20e5aec0ed14014185dad6357d99a59b53f65acb10ed6
+  # SHA-256 from the release's checksums file.
+  ACTIONLINT_VERSION: 1.7.12
+  ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+  # Browsers come from the runner or the pinned download, never from npm.
+  PUPPETEER_SKIP_DOWNLOAD: 'true'
+  npm_config_audit: 'false'
+  npm_config_fund: 'false'
+  npm_config_update_notifier: 'false'
+
+jobs:
+  # What the change touches. A pull request's checkout is the request merged
+  # into its base, so HEAD^1 is the base; a push to main is classified when it
+  # adds exactly one commit. Anything else runs every check.
+  changes:
+    name: changes
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: [self-hosted, ci-heavy]
+    timeout-minutes: 35
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          code=true
+          if [ "$EVENT" = pull_request ] || { [ "$EVENT" = push ] && [ "$(git rev-parse -q --verify HEAD^1)" = "$BEFORE" ]; }; then
+            files=$(git diff --name-only --no-renames HEAD^1 HEAD)
+            docs='^(README\.md|LICENSE|BUILD\.html|docs/.+|shifter_docs/.+|e2e/README\.md)$'
+            if [ -n "$files" ] && ! grep -qvE "$docs" <<< "$files"; then code=false; fi
+          fi
+          echo "code=$code" | tee -a "$GITHUB_OUTPUT"
+
+  # Runs for every ready change, so its result always means something: a
+  # docs-only change gets the docs check, any other change the whole list.
+  # A failed changes job fails this job instead of skipping it.
+  check:
+    name: check
+    needs: changes
+    if: ${{ !cancelled() && !github.event.pull_request.draft }}
+    runs-on: [self-hosted, ci-heavy]
+    timeout-minutes: 45
+    env:
+      CODE: ${{ needs.changes.outputs.code }}
+    steps:
+      - name: The changes job must have succeeded
+        if: needs.changes.result != 'success'
+        env:
+          RESULT: ${{ needs.changes.result }}
+        run: echo "::error::changes job $RESULT" && exit 1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use the runner's cache
+        run: |
+          : "${CI_CACHE_DIR:?is not set; this job needs the self-hosted CI runners}"
+          cache="$CI_CACHE_DIR/proxy-extension"
+          mkdir -p "$cache/npm" "$cache/puppeteer" "$cache/tools"
+          # Partial downloads a cancelled run left behind.
+          find "$cache/tools" -mindepth 1 -maxdepth 1 -name '.*' -mmin +60 -exec rm -rf {} +
+          {
+            echo "npm_config_cache=$cache/npm"
+            echo "PUPPETEER_CACHE_DIR=$cache/puppeteer"
+            echo "TMPDIR=$RUNNER_TEMP"
+          } >> "$GITHUB_ENV"
+      - name: docs/ matches its Markdown sources
+        env:
+          PYTHONUTF8: '1'
+        run: |
+          python3 scripts/render-readme.py
+          git diff --exit-code --stat -- docs/ \
+            || { echo "::error::docs/ is out of date: run python3 scripts/render-readme.py and commit the result"; exit 1; }
+      - name: Lint the workflows (actionlint)
+        if: env.CODE == 'true'
+        run: |
+          tools="$CI_CACHE_DIR/proxy-extension/tools"
+          dir="$tools/actionlint-$ACTIONLINT_VERSION"
+          if [ ! -x "$dir/actionlint" ]; then
+            tmp=$(mktemp -d "$tools/.actionlint-XXXXXX")
+            curl -fsSL --retry 3 -o "$tmp/a.tar.gz" \
+              "https://github.com/rhysd/actionlint/releases/download/v$ACTIONLINT_VERSION/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+            echo "$ACTIONLINT_SHA256  $tmp/a.tar.gz" | sha256sum -c --quiet -
+            tar -C "$tmp" -xzf "$tmp/a.tar.gz" actionlint
+            rm -f "$tmp/a.tar.gz"
+            rm -rf "$dir" && mv -T "$tmp" "$dir"
+          fi
+          find "$tools" -mindepth 1 -maxdepth 1 -name 'actionlint-*' ! -name "actionlint-$ACTIONLINT_VERSION" -exec rm -rf {} +
+          # ci-heavy is the self-hosted runners' label.
+          "$dir/actionlint" -color -ignore 'label "ci-heavy" is unknown'
+      - name: Toolchain
+        if: env.CODE == 'true'
+        run: |
+          echo "node $(node --version), npm $(npm --version)"
+          if [ "$(node --version)" != "v$NODE_VERSION" ] || [ "$(npm --version)" != "$NPM_VERSION" ]; then
+            echo "::error::expected node v$NODE_VERSION and npm $NPM_VERSION"; exit 1
+          fi
+      - name: npm ci
+        if: env.CODE == 'true'
+        run: npm ci
+      - name: Type check
+        if: env.CODE == 'true'
+        run: npm run compile
+      - name: Production builds (Chrome, Firefox, Edge) and the mock build
+        if: env.CODE == 'true'
+        run: |
+          npm run build
+          npm run build:firefox
+          npx wxt build -b edge
+          npm run build:mock
+      - name: Install and builds leave the tree clean
+        if: env.CODE == 'true'
+        run: |
+          status=$(git status --porcelain)
+          [ -z "$status" ] || { echo "$status"; echo "::error::npm ci or a build changed files or wrote outside ignored paths"; exit 1; }
+
+  # One job per browser keeps the check names stable; a docs-only change
+  # passes at once. Chrome is the runner's Chrome for Testing, Firefox the
+  # pinned release above. Every suite runs offline against the local
+  # stand-in API (e2e/README.md), and each runs even after an earlier one
+  # failed, so one run shows every failure.
+  e2e:
+    name: e2e (${{ matrix.browser }})
+    needs: changes
+    if: ${{ !cancelled() && !github.event.pull_request.draft }}
+    runs-on: [self-hosted, ci-heavy]
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chrome, firefox]
+    env:
+      BROWSER: ${{ matrix.browser }}
+      CODE: ${{ needs.changes.outputs.code }}
+    steps:
+      - name: The changes job must have succeeded
+        if: needs.changes.result != 'success'
+        env:
+          RESULT: ${{ needs.changes.result }}
+        run: echo "::error::changes job $RESULT" && exit 1
+      - name: Docs-only change
+        if: needs.changes.result == 'success' && env.CODE != 'true'
+        run: echo "Only documentation changed; the end-to-end suites do not run."
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.CODE == 'true'
+        with:
+          persist-credentials: false
+      - name: Use the runner's cache
+        if: env.CODE == 'true'
+        run: |
+          : "${CI_CACHE_DIR:?is not set; this job needs the self-hosted CI runners}"
+          cache="$CI_CACHE_DIR/proxy-extension"
+          mkdir -p "$cache/npm" "$cache/puppeteer" "$cache/tools"
+          # Partial downloads a cancelled run left behind.
+          find "$cache/tools" -mindepth 1 -maxdepth 1 -name '.*' -mmin +60 -exec rm -rf {} +
+          {
+            echo "npm_config_cache=$cache/npm"
+            echo "PUPPETEER_CACHE_DIR=$cache/puppeteer"
+            echo "TMPDIR=$RUNNER_TEMP"
+          } >> "$GITHUB_ENV"
+      - name: Toolchain
+        if: env.CODE == 'true'
+        run: |
+          echo "node $(node --version), npm $(npm --version)"
+          if [ "$(node --version)" != "v$NODE_VERSION" ] || [ "$(npm --version)" != "$NPM_VERSION" ]; then
+            echo "::error::expected node v$NODE_VERSION and npm $NPM_VERSION"; exit 1
+          fi
+      - name: npm ci
+        if: env.CODE == 'true'
+        run: npm ci
+      - name: npm ci (e2e, without browser downloads)
+        if: env.CODE == 'true'
+        working-directory: e2e
+        run: npm ci --ignore-scripts
+      - name: Chrome for Testing from the runner
+        if: env.CODE == 'true' && matrix.browser == 'chrome'
+        run: |
+          bin=$(readlink -f "$(command -v google-chrome)")
+          version=$("$bin" --version)
+          echo "$bin: $version"
+          [[ "$version" == *"Chrome for Testing"* ]] || { echo "::error::$bin is not Chrome for Testing"; exit 1; }
+          { echo "PUPPETEER_EXECUTABLE_PATH=$bin"; echo "BROWSER_READY=true"; } >> "$GITHUB_ENV"
+      - name: Firefox ${{ env.FIREFOX_VERSION }}
+        if: env.CODE == 'true' && matrix.browser == 'firefox'
+        run: |
+          tools="$CI_CACHE_DIR/proxy-extension/tools"
+          dir="$tools/firefox-$FIREFOX_VERSION"
+          if [ ! -x "$dir/firefox/firefox" ]; then
+            tmp=$(mktemp -d "$tools/.firefox-XXXXXX")
+            curl -fsSL --retry 3 -o "$tmp/firefox.tar.xz" \
+              "https://archive.mozilla.org/pub/firefox/releases/$FIREFOX_VERSION/linux-x86_64/en-US/firefox-$FIREFOX_VERSION.tar.xz"
+            echo "$FIREFOX_SHA256  $tmp/firefox.tar.xz" | sha256sum -c --quiet -
+            tar -C "$tmp" -xJf "$tmp/firefox.tar.xz"
+            rm -f "$tmp/firefox.tar.xz"
+            rm -rf "$dir" && mv -T "$tmp" "$dir"
+          fi
+          find "$tools" -mindepth 1 -maxdepth 1 -name 'firefox-*' ! -name "firefox-$FIREFOX_VERSION" -exec rm -rf {} +
+          # Firefox loads GTK 3 and X11 libraries even when headless. Its own
+          # libraries (NSS included) sit next to libxul.so.
+          missing=$(LD_LIBRARY_PATH="$dir/firefox" ldd "$dir/firefox/libxul.so" | grep 'not found' || true)
+          [ -z "$missing" ] || { echo "$missing"; echo "::error::this runner lacks the system libraries Firefox needs (listed above)"; exit 1; }
+          "$dir/firefox/firefox" --version
+          { echo "PUPPETEER_EXECUTABLE_PATH=$dir/firefox/firefox"; echo "BROWSER_READY=true"; } >> "$GITHUB_ENV"
+      - name: Suite (offline)
+        if: ${{ !cancelled() && env.BROWSER_READY == 'true' }}
+        timeout-minutes: 10
+        run: npm run e2e -- "$BROWSER" --offline
+      - name: Toolbar
+        if: ${{ !cancelled() && env.BROWSER_READY == 'true' }}
+        timeout-minutes: 6
+        run: node e2e/toolbar.mjs "$BROWSER"
+      - name: Usage
+        if: ${{ !cancelled() && env.BROWSER_READY == 'true' }}
+        timeout-minutes: 6
+        run: node e2e/usage.mjs "$BROWSER"
+      - name: Workspaces
+        if: ${{ !cancelled() && env.BROWSER_READY == 'true' }}
+        timeout-minutes: 6
+        run: node e2e/workspaces.mjs "$BROWSER"
+      - name: Cookies (Chrome and Edge builds)
+        if: ${{ !cancelled() && env.BROWSER_READY == 'true' && matrix.browser == 'chrome' }}
+        timeout-minutes: 6
+        run: node e2e/cookies.mjs
+      - name: Cache size
+        if: ${{ always() && env.CODE == 'true' }}
+        run: |
+          du -sh "$CI_CACHE_DIR/proxy-extension" || true
+          df -h "$CI_CACHE_DIR" || true

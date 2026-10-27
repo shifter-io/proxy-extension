@@ -219,6 +219,18 @@ The checked-in catalog contains location and ASN labels, not customer IPs or raw
 
 Run `python3 scripts/render-readme.py` after editing the README or reference documents to refresh the [offline documentation](docs/readme.html). The banner generator uses the bundled Geist font; optional `fonttools` and `brotli` packages are needed only when regenerating the banner.
 
+### Continuous integration
+
+Every pull request that is ready for review and every push to `main` runs `.github/workflows/ci.yml` on the project's self-hosted runners.
+
+| Check | What it runs |
+| --- | --- |
+| `check` | `npm run compile`; production builds for Chrome, Firefox, and Edge; the mock build; a check that the HTML guides in `docs/` match their Markdown sources; and a lint of the workflow. |
+| `e2e (chrome)` | The offline end-to-end suite and the toolbar, usage, workspace, and cookie regressions in Chrome for Testing. |
+| `e2e (firefox)` | The offline end-to-end suite and the toolbar, usage, and workspace regressions in Firefox. |
+
+Draft pull requests run nothing until they are marked ready. A change that touches only documentation runs only the docs check. Pull requests from forks do not run CI; a maintainer runs the checks on a branch of this repository before merging.
+
 ## FAQ
 
 ### Is this a free proxy extension?
