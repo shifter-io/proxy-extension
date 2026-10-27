@@ -142,8 +142,9 @@ jobs:
         if: env.CODE == 'true'
         run: |
           echo "node $(node --version), npm $(npm --version)"
-          [ "$(node --version)" = "v$NODE_VERSION" ] && [ "$(npm --version)" = "$NPM_VERSION" ] \
-            || { echo "::error::expected node v$NODE_VERSION and npm $NPM_VERSION"; exit 1; }
+          if [ "$(node --version)" != "v$NODE_VERSION" ] || [ "$(npm --version)" != "$NPM_VERSION" ]; then
+            echo "::error::expected node v$NODE_VERSION and npm $NPM_VERSION"; exit 1
+          fi
       - name: npm ci
         if: env.CODE == 'true'
         run: npm ci
@@ -211,8 +212,9 @@ jobs:
         if: env.CODE == 'true'
         run: |
           echo "node $(node --version), npm $(npm --version)"
-          [ "$(node --version)" = "v$NODE_VERSION" ] && [ "$(npm --version)" = "$NPM_VERSION" ] \
-            || { echo "::error::expected node v$NODE_VERSION and npm $NPM_VERSION"; exit 1; }
+          if [ "$(node --version)" != "v$NODE_VERSION" ] || [ "$(npm --version)" != "$NPM_VERSION" ]; then
+            echo "::error::expected node v$NODE_VERSION and npm $NPM_VERSION"; exit 1
+          fi
       - name: npm ci
         if: env.CODE == 'true'
         run: npm ci
@@ -243,8 +245,9 @@ jobs:
             rm -rf "$dir" && mv -T "$tmp" "$dir"
           fi
           find "$tools" -mindepth 1 -maxdepth 1 -name 'firefox-*' ! -name "firefox-$FIREFOX_VERSION" -exec rm -rf {} +
-          # Firefox loads GTK 3 and X11 libraries even when headless.
-          missing=$(ldd "$dir/firefox/libxul.so" | grep 'not found' || true)
+          # Firefox loads GTK 3 and X11 libraries even when headless. Its own
+          # libraries (NSS included) sit next to libxul.so.
+          missing=$(LD_LIBRARY_PATH="$dir/firefox" ldd "$dir/firefox/libxul.so" | grep 'not found' || true)
           [ -z "$missing" ] || { echo "$missing"; echo "::error::this runner lacks the system libraries Firefox needs (listed above)"; exit 1; }
           "$dir/firefox/firefox" --version
           { echo "PUPPETEER_EXECUTABLE_PATH=$dir/firefox/firefox"; echo "BROWSER_READY=true"; } >> "$GITHUB_ENV"
