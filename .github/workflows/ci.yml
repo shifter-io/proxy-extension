@@ -8,6 +8,11 @@
 # between runs under $CI_CACHE_DIR/proxy-extension; the checkout and
 # $RUNNER_TEMP do not.
 #
+# A runner machine runs one job at a time, and a job that lands on a busy
+# machine waits for it inside the job, so that wait counts toward the job's
+# timeout-minutes. Each job limit therefore allows 30 minutes of waiting on
+# top of its work; the end-to-end suites keep their own step limits.
+#
 # A change that touches only documentation runs only the docs check (the
 # changes job decides). Draft pull requests run nothing until marked ready.
 name: ci
@@ -56,7 +61,7 @@ jobs:
     name: changes
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: [self-hosted, ci-light]
-    timeout-minutes: 5
+    timeout-minutes: 35
     outputs:
       code: ${{ steps.diff.outputs.code }}
     steps:
@@ -85,7 +90,7 @@ jobs:
     needs: changes
     if: ${{ !cancelled() && !github.event.pull_request.draft }}
     runs-on: [self-hosted, ci-light]
-    timeout-minutes: 15
+    timeout-minutes: 45
     env:
       CODE: ${{ needs.changes.outputs.code }}
     steps:
@@ -168,7 +173,7 @@ jobs:
     needs: changes
     if: ${{ !cancelled() && !github.event.pull_request.draft }}
     runs-on: [self-hosted, ci-heavy]
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
