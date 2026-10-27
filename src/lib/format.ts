@@ -4,7 +4,7 @@ import type { IspIp, Membership, ResidentialMembership, Target } from './types';
 export function formatBytes(bytes: number, digits = 1): string {
   const gb = bytes / 1e9;
   if (gb >= 1000) return `${trim(gb / 1000, digits)} TB`;
-  if (gb >= 1) return `${trim(gb, digits)} GiB`;
+  if (gb >= 1) return `${trim(gb, digits)} GB`;
   return `${trim(bytes / 1e6, 0)} MB`;
 }
 
@@ -131,5 +131,3 @@ export function sameTarget(a: Target, b: Target): boolean {
     ra.asn?.asn === rb.asn?.asn
   );
 }
-
-export const ciProbe: number = 'ci probe';
