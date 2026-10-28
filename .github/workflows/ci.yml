@@ -1,16 +1,17 @@
 # Merge checks for every ready pull request and every push to main
 # (README.md, "Continuous integration").
 #
-# Every job runs on the self-hosted runners labelled [self-hosted, ci-heavy].
+# Every job runs on a fresh one-job CI-SelfHosted runner: [self-hosted, ci-4cpu],
+# and [self-hosted, ci-2cpu] for changes.
 # The runners admit only the maintainer's pull requests from branches of this
 # repository, pushes to main and the maintainer's manual runs. Downloads and
 # the npm cache persist between runs under $CI_CACHE_DIR/proxy-extension; the
 # checkout and $RUNNER_TEMP do not.
 #
-# A runner machine runs one job at a time, and a job that lands on a busy
-# machine waits for it inside the job, so that wait counts toward the job's
-# timeout-minutes. Each job limit therefore allows 30 minutes of waiting on
-# top of its work; the end-to-end suites keep their own step limits.
+# Each runner is a fresh machine for one job, so no job waits for a machine
+# slot. The job limits keep their former slot margin until the CI-SelfHosted
+# reports show the jobs' times there; the end-to-end suites keep their own
+# step limits.
 #
 # A change that touches only documentation runs only the docs check (the
 # changes job decides). Draft pull requests run nothing until marked ready.
@@ -59,7 +60,7 @@ jobs:
   changes:
     name: changes
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    runs-on: [self-hosted, ci-heavy]
+    runs-on: [self-hosted, ci-2cpu]
     timeout-minutes: 35
     outputs:
       code: ${{ steps.diff.outputs.code }}
@@ -88,7 +89,7 @@ jobs:
     name: check
     needs: changes
     if: ${{ !cancelled() && !github.event.pull_request.draft }}
-    runs-on: [self-hosted, ci-heavy]
+    runs-on: [self-hosted, ci-4cpu]
     timeout-minutes: 45
     env:
       CODE: ${{ needs.changes.outputs.code }}
@@ -135,8 +136,8 @@ jobs:
             rm -rf "$dir" && mv -T "$tmp" "$dir"
           fi
           find "$tools" -mindepth 1 -maxdepth 1 -name 'actionlint-*' ! -name "actionlint-$ACTIONLINT_VERSION" -exec rm -rf {} +
-          # ci-heavy is the self-hosted runners' label.
-          "$dir/actionlint" -color -ignore 'label "ci-heavy" is unknown'
+          # ci-2cpu, ci-4cpu and ci-8cpu are the self-hosted runners' labels.
+          "$dir/actionlint" -color -ignore 'label "ci-[248]cpu" is unknown'
       - name: Toolchain
         if: env.CODE == 'true'
         run: |
@@ -172,7 +173,7 @@ jobs:
     name: e2e (${{ matrix.browser }})
     needs: changes
     if: ${{ !cancelled() && !github.event.pull_request.draft }}
-    runs-on: [self-hosted, ci-heavy]
+    runs-on: [self-hosted, ci-4cpu]
     timeout-minutes: 60
     strategy:
       fail-fast: false
