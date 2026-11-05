@@ -14,7 +14,11 @@
 # step limits.
 #
 # A change that touches only documentation runs only the docs check (the
-# changes job decides). Draft pull requests run nothing until marked ready.
+# changes job decides). Draft pull requests run nothing until marked ready,
+# except gate, which fails on a draft because nothing was checked.
+#
+# gate is the one required check: it always runs and succeeds only when
+# changes, check and both e2e jobs ran and succeeded.
 name: ci
 
 on:
@@ -24,9 +28,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# A push to main gets its own group, so no main run is cancelled or replaced
+# by the next merge; a pull request's newer head still cancels its older run.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name == 'push' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -276,3 +282,26 @@ jobs:
         run: |
           du -sh "$CI_CACHE_DIR/proxy-extension" || true
           df -h "$CI_CACHE_DIR" || true
+
+  # The one required check. It always runs, even when a job it needs failed,
+  # was skipped or was cancelled, because a skipped required check counts as
+  # passed; it succeeds only when every job it needs succeeded.
+  gate:
+    name: gate
+    needs: [changes, check, e2e]
+    if: always()
+    runs-on: [self-hosted, ci-2cpu]
+    timeout-minutes: 5
+    steps:
+      - name: Every check ran and succeeded
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          CHECK: ${{ needs.check.result }}
+          E2E: ${{ needs.e2e.result }}
+        run: |
+          failed=0
+          for job in "changes=$CHANGES" "check=$CHECK" "e2e=$E2E"; do
+            echo "$job"
+            [ "${job#*=}" = success ] || { echo "::error::job ${job%%=*} is ${job#*=}, not success"; failed=1; }
+          done
+          exit "$failed"

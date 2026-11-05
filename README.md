@@ -228,8 +228,9 @@ Every pull request that is ready for review and every push to `main` runs `.gith
 | `check` | `npm run compile`; production builds for Chrome, Firefox, and Edge; the mock build; a check that the HTML guides in `docs/` match their Markdown sources; and a lint of the workflow. |
 | `e2e (chrome)` | The offline end-to-end suite and the toolbar, usage, workspace, and cookie regressions in Chrome for Testing. |
 | `e2e (firefox)` | The offline end-to-end suite and the toolbar, usage, and workspace regressions in Firefox. |
+| `gate` | Runs after the others, even when one of them failed or was skipped, and succeeds only when `changes`, `check`, and both `e2e` jobs succeeded. It is the one check a merge requires. |
 
-Draft pull requests run nothing until they are marked ready. A change that touches only documentation runs only the docs check. Pull requests from forks do not run CI; a maintainer runs the checks on a branch of this repository before merging.
+Draft pull requests run nothing until they are marked ready, except `gate`, which fails because nothing was checked. A change that touches only documentation runs only the docs check. Pull requests from forks do not run CI; a maintainer runs the checks on a branch of this repository before merging.
 
 ## FAQ
 
