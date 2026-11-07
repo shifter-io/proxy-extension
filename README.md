@@ -221,7 +221,7 @@ Run `python3 scripts/render-readme.py` after editing the README or reference doc
 
 ### Continuous integration
 
-Every pull request that is ready for review, every merge-queue test, and every push to `main` runs `.github/workflows/ci.yml` on the project's self-hosted runners.
+Every pull request that is ready for review, every merge-queue test, and every push to `main` runs `.github/workflows/ci.yml` on the project's self-hosted runners. Every 6 hours a scheduled run tests the head of `main` with every check.
 
 | Check | What it runs |
 | --- | --- |
@@ -236,7 +236,9 @@ Three more workflows come from Maestro, the project's task tooling:
 | --- | --- |
 | `maestro-policy` | On every pull request: its size, that it holds no private data, and that it carries no AI attribution. |
 | `maestro-queue` | On every merge-queue test: confirms the pull request passed `maestro/review`, `maestro/qa`, and `maestro-policy` on its own head. |
-| `maestro-nightly` | Daily: `npm audit --audit-level=high` in every folder with a tracked `package-lock.json`. It never blocks a pull request. |
+| `maestro-nightly` | Daily: `npm audit --audit-level=high` in every folder with a tracked `package-lock.json`. A failed audit opens the issue "Nightly dependency audit failed". It never blocks a pull request. |
+
+When a scheduled run fails, its `report` job opens one issue titled "Full CI run failed on main" with a link to the run, its event, ref, and commit. While that issue is open, later failed runs add neither a second issue nor a comment; close it when the next scheduled run is green. A manual run of `ci.yml` with `report_failure` set reports the same way. `report` never runs for a pull request or a merge-queue test, and `gate` stays the only required check. GitHub stops the schedules of a public repository after 60 days without activity; a maintainer then turns each workflow back on in the Actions tab.
 
 Draft pull requests run nothing until they are marked ready, except `gate`, which fails because nothing was checked. A change that touches only documentation runs only the docs check. Pull requests from forks do not run CI; a maintainer runs the checks on a branch of this repository before merging.
 

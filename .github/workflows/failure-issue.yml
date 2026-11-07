@@ -1,0 +1,57 @@
+# Opens one issue for a failed scheduled run (README.md, "Continuous
+# integration"). Called by ci.yml and maestro-nightly.yml; it never fails the
+# caller's required checks.
+#
+# If an open issue already has exactly this title, the run only prints its
+# number: no second issue and no comment. Otherwise it opens one whose body is
+# the summary, then the run link, event, ref and commit. The title says what
+# kind of issue it is; no labels.
+name: failure-issue
+
+on:
+  workflow_call:
+    inputs:
+      title:
+        description: The issue title; an open issue with exactly this title is reused.
+        type: string
+        required: true
+      summary:
+        description: The first paragraph of the issue body.
+        type: string
+        required: true
+
+jobs:
+  issue:
+    name: issue
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Two failed runs at once still open one issue.
+    concurrency:
+      group: failure-issue-${{ inputs.title }}
+      cancel-in-progress: false
+    permissions:
+      issues: write
+    steps:
+      - name: Open the issue unless one is open
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: ${{ inputs.title }}
+          SUMMARY: ${{ inputs.summary }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The search is fuzzy, so compare the titles exactly.
+          number=$(gh issue list --state open --limit 100 --search "in:title \"$TITLE\"" \
+            --json number,title --jq '[.[] | select(.title == env.TITLE) | .number] | first // empty')
+          if [ -n "$number" ]; then
+            echo "Issue #$number is already open: $TITLE"
+            exit 0
+          fi
+          printf '%s\n\n- Run: %s\n- Event: %s\n- Ref: %s\n- Commit: %s\n' \
+            "$SUMMARY" "$RUN_URL" "$EVENT" "$REF" "$SHA" > "$RUNNER_TEMP/body.md"
+          gh issue create --title "$TITLE" --body-file "$RUNNER_TEMP/body.md"

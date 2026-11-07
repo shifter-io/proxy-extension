@@ -1,5 +1,5 @@
 # Merge checks for every ready pull request, every merge-queue test and
-# every push to main
+# every push to main, and a full run of main every 6 hours
 # (README.md, "Continuous integration").
 #
 # Every job runs on a fresh one-job CI-SelfHosted runner: [self-hosted, ci-4cpu],
@@ -19,7 +19,9 @@
 # except gate, which fails on a draft because nothing was checked.
 #
 # gate is the one required check: it always runs and succeeds only when
-# changes, check and both e2e jobs ran and succeeded.
+# changes, check and both e2e jobs ran and succeeded. When gate fails on a
+# scheduled run, or on a manual run with report_failure, report opens one
+# issue (failure-issue.yml); it never runs for a pull request or the queue.
 name: ci
 
 on:
@@ -29,7 +31,14 @@ on:
     branches: [main]
   merge_group:
     types: [checks_requested]
+  schedule:
+    - cron: "0 */6 * * *"
   workflow_dispatch:
+    inputs:
+      report_failure:
+        description: Open an issue if this run fails, as a scheduled run does.
+        type: boolean
+        default: false
 
 # A push to main gets its own group, so no main run is cancelled or replaced
 # by the next merge; a pull request's newer head still cancels its older run.
@@ -308,3 +317,16 @@ jobs:
             [ "${job#*=}" = success ] || { echo "::error::job ${job%%=*} is ${job#*=}, not success"; failed=1; }
           done
           exit "$failed"
+
+  # A failed scheduled run opens one issue, or names the open one. It is not
+  # a required check.
+  report:
+    name: report
+    needs: gate
+    if: always() && needs.gate.result != 'success' && (github.event_name == 'schedule' || inputs.report_failure)
+    permissions:
+      issues: write
+    uses: ./.github/workflows/failure-issue.yml
+    with:
+      title: Full CI run failed on ${{ github.ref_name }}
+      summary: A scheduled full CI run failed. Close this issue when the next scheduled run is green.
