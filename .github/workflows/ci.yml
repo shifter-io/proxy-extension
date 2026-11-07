@@ -257,26 +257,40 @@ jobs:
           [ -z "$missing" ] || { echo "$missing"; echo "::error::this runner lacks the system libraries Firefox needs (listed above)"; exit 1; }
           "$dir/firefox/firefox" --version
           { echo "PUPPETEER_EXECUTABLE_PATH=$dir/firefox/firefox"; echo "BROWSER_READY=true"; } >> "$GITHUB_ENV"
-      - name: Suite (offline)
+      - name: Side by side (throwaway proof for #12)
         if: ${{ !cancelled() && env.BROWSER_READY == 'true' }}
-        timeout-minutes: 10
-        run: npm run e2e -- "$BROWSER" --offline
-      - name: Toolbar
-        if: ${{ !cancelled() && env.BROWSER_READY == 'true' }}
-        timeout-minutes: 6
-        run: node e2e/toolbar.mjs "$BROWSER"
-      - name: Usage
-        if: ${{ !cancelled() && env.BROWSER_READY == 'true' }}
-        timeout-minutes: 6
-        run: node e2e/usage.mjs "$BROWSER"
-      - name: Workspaces
-        if: ${{ !cancelled() && env.BROWSER_READY == 'true' }}
-        timeout-minutes: 6
-        run: node e2e/workspaces.mjs "$BROWSER"
-      - name: Cookies (Chrome and Edge builds)
-        if: ${{ !cancelled() && env.BROWSER_READY == 'true' && matrix.browser == 'chrome' }}
-        timeout-minutes: 6
-        run: node e2e/cookies.mjs
+        timeout-minutes: 15
+        run: |
+          pids=() names=()
+          launch() {
+            local name=$1 base=$2; shift 2
+            (
+              echo "$name start $(date +%T.%3N) E2E_PORT_BASE=$base"
+              E2E_PORT_BASE=$base "$@"
+              rc=$?
+              echo "$name end $(date +%T.%3N) exit $rc"
+              exit "$rc"
+            ) > "$RUNNER_TEMP/$name.log" 2>&1 &
+            pids+=("$!") names+=("$name")
+          }
+          launch suite 18100 npm run e2e -- "$BROWSER" --offline
+          launch toolbar 18110 node e2e/toolbar.mjs "$BROWSER"
+          launch usage 18120 node e2e/usage.mjs "$BROWSER"
+          launch workspaces 18130 node e2e/workspaces.mjs "$BROWSER"
+          if [ "$BROWSER" = chrome ]; then launch cookies 18140 node e2e/cookies.mjs; fi
+          launch live 18150 npm run e2e -- "$BROWSER" --live-only
+          failed=0
+          for i in "${!pids[@]}"; do
+            name=${names[$i]}
+            if wait "${pids[$i]}"; then status=ok; else status=FAILED; failed=1; fi
+            echo "::group::$name: $status, $(grep -c '^PASS' "$RUNNER_TEMP/$name.log") PASS"
+            cat "$RUNNER_TEMP/$name.log"
+            echo "::endgroup::"
+          done
+          for name in "${names[@]}"; do
+            echo "$name: $(grep -c '^PASS' "$RUNNER_TEMP/$name.log") PASS; $(grep -E "^$name (start|end) " "$RUNNER_TEMP/$name.log" | tr '\n' ' ')"
+          done
+          exit "$failed"
       - name: Cache size
         if: ${{ always() && env.CODE == 'true' }}
         run: |
