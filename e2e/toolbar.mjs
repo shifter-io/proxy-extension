@@ -1,11 +1,10 @@
 // Tests the real browser toolbar APIs against local, mock connection states.
 // Run: node e2e/toolbar.mjs [chrome|firefox]
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { buildExtension } from './build.mjs';
 import { drivers } from './drivers.mjs';
+import { API_URL } from './fake-shifter.mjs';
 
-const root = fileURLToPath(new URL('..', import.meta.url));
 const selected = process.argv.slice(2);
 const connected = {
   status: 'connected', membershipId: 'm_res_1',
@@ -16,11 +15,10 @@ const connected = {
 for (const name of selected.length ? selected : Object.keys(drivers)) {
   const driver = drivers[name];
   assert.ok(driver, `Unknown browser: ${name}`);
-  execFileSync('npx', ['wxt', 'build', ...(name === 'firefox' ? ['-b', 'firefox'] : [])], {
-    cwd: root, stdio: 'pipe',
-    env: { ...process.env, WXT_USE_MOCK: 'true', WXT_SHIFTER_BASE_URL: 'http://127.0.0.1:18080', WXT_OUT_DIR: 'build-test/toolbar' },
+  const dir = await buildExtension({
+    browser: name, env: { WXT_USE_MOCK: 'true', WXT_SHIFTER_BASE_URL: API_URL }, outDir: 'build-test/toolbar',
   });
-  const { browser, page } = await driver.launch(`${root}build-test/toolbar/${driver.build}`);
+  const { browser, page } = await driver.launch(dir);
   try {
     const set = (connection) => page.evaluate(async (connection) => {
       const api = globalThis.browser ?? globalThis.chrome;

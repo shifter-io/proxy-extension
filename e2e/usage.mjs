@@ -1,12 +1,10 @@
 // Usage API -> membership list and home screen, in isolated test browsers.
 // Run: node e2e/usage.mjs [chrome|firefox]
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { buildExtension } from './build.mjs';
 import { drivers } from './drivers.mjs';
-import { API_URL, KEY, MEMBERSHIPS, PROXY_CONFIG, USAGE, start, stop } from './fake-shifter.mjs';
+import { API_URL, GATEWAY_PORTS, KEY, MEMBERSHIPS, PROXY_CONFIG, USAGE, start, stop } from './fake-shifter.mjs';
 
-const root = fileURLToPath(new URL('..', import.meta.url));
 const selected = process.argv.slice(2);
 const options = {
   memberships: {
@@ -16,7 +14,7 @@ const options = {
   proxyConfig: {
     plans: [...PROXY_CONFIG.plans, {
       membership_id: 4, hash: 'isp', product: '25 ISP Proxies', status: 'Active', protocol: 'http', type: 'isp',
-      host: '127.0.0.1', port: 18081, password: 'pw-secret',
+      host: '127.0.0.1', port: GATEWAY_PORTS[0], password: 'pw-secret',
       proxies: [{ username: '192.0.2.10', country: 'us', city: null, asn: null }],
     }],
   },
@@ -40,12 +38,11 @@ try {
   for (const name of selected.length ? selected : Object.keys(drivers)) {
     const driver = drivers[name];
     assert.ok(driver, `Unknown browser: ${name}`);
-    execFileSync('npx', ['wxt', 'build', ...(name === 'firefox' ? ['-b', 'firefox'] : [])], {
-      cwd: root, stdio: 'pipe',
-      env: { ...process.env, WXT_USE_MOCK: 'false', WXT_SHIFTER_BASE_URL: API_URL, WXT_OUT_DIR: 'build-test/usage' },
+    const dir = await buildExtension({
+      browser: name, env: { WXT_USE_MOCK: 'false', WXT_SHIFTER_BASE_URL: API_URL }, outDir: 'build-test/usage',
     });
     options.usage = structuredClone(USAGE);
-    const { browser, page } = await driver.launch(`${root}build-test/usage/${driver.build}`);
+    const { browser, page } = await driver.launch(dir);
     const wait = (fn) => page.waitForFunction(fn, { timeout: 15000, polling: 100 });
     const choose = (title) => page.evaluate((title) => {
       [...document.querySelectorAll('[role="button"]')].find(el => el.querySelector('h3')?.textContent === title).click();

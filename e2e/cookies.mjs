@@ -8,11 +8,10 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { buildExtension } from './build.mjs';
 import { drivers } from './drivers.mjs';
 import { API_URL, GATEWAY_PORTS, KEY, log, start, stop } from './fake-shifter.mjs';
 
-const root = fileURLToPath(new URL('..', import.meta.url));
 const certDir = mkdtempSync(join(tmpdir(), 'shifter-cookie-test-'));
 execFileSync(process.env.OPENSSL ?? (process.platform === 'darwin' ? '/usr/bin/openssl' : 'openssl'), ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', join(certDir, 'key.pem'),
   '-out', join(certDir, 'cert.pem'), '-days', '1', '-subj', '/CN=shifter.io'], { stdio: 'ignore' });
@@ -37,21 +36,22 @@ const server = https.createServer({ key: readFileSync(join(certDir, 'key.pem')),
   }
   res.end('Proxied test page');
 });
-await new Promise(resolve => server.listen(18443, '127.0.0.1', resolve));
+await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+const { port } = server.address();
 
 try {
   for (const name of ['chrome', 'edge']) {
-    execFileSync('npx', ['wxt', 'build', '-b', name], {
-      cwd: root, stdio: 'pipe', env: { ...process.env, WXT_USE_MOCK: 'false', WXT_SHIFTER_BASE_URL: API_URL,
-        WXT_GATEWAY_PORTS: GATEWAY_PORTS.join(','), WXT_OUT_DIR: 'build-test/cookies' },
+    const dir = await buildExtension({
+      browser: name, env: { WXT_USE_MOCK: 'false', WXT_SHIFTER_BASE_URL: API_URL, WXT_GATEWAY_PORTS: GATEWAY_PORTS.join(',') },
+      outDir: 'build-test/cookies',
     });
     const launchOptions = {
       // Resolver overrides apply only to this isolated test browser profile.
       args: ['--ignore-certificate-errors', '--host-resolver-rules=MAP *.shifter.io 127.0.0.1, MAP shifter.io 127.0.0.1, MAP example.org 127.0.0.1'],
       ...(name === 'edge' && process.env.EDGE_EXECUTABLE ? { executablePath: process.env.EDGE_EXECUTABLE } : {}),
     };
-    await start({ gatewayHosts: ['p.shifter.io', 'fra.p.shifter.io', 'ams.p.shifter.io', 'lon.p.shifter.io'], tunnelPort: 18443 });
-    const { browser, page } = await drivers.chrome.launch(`${root}build-test/cookies/${name}-mv3`, launchOptions);
+    await start({ gatewayHosts: ['p.shifter.io', 'fra.p.shifter.io', 'ams.p.shifter.io', 'lon.p.shifter.io'], tunnelPort: port });
+    const { browser, page } = await drivers.chrome.launch(dir, launchOptions);
     try {
       const call = (fn, arg) => page.evaluate(fn, arg);
       await page.waitForSelector('input[aria-label="API key"]');
@@ -65,11 +65,11 @@ try {
       const permissions = await call(() => chrome.runtime.getManifest().permissions);
       assert.ok(!permissions.includes('browsingData'));
       const dashboard = await browser.newPage();
-      await dashboard.goto('https://shifter.io:18443/login');
+      await dashboard.goto(`https://shifter.io:${port}/login`);
       const baseline = (await dashboard.cookies()).sort((a, b) => a.name.localeCompare(b.name));
       assert.equal(baseline.length, Object.keys(cookies).length);
       const verifyCookies = async label => {
-        await dashboard.goto('https://shifter.io:18443/dashboard');
+        await dashboard.goto(`https://shifter.io:${port}/dashboard`);
         assert.equal(await dashboard.evaluate(() => document.body.innerText), 'Signed in');
         assert.deepEqual((await dashboard.cookies()).sort((a, b) => a.name.localeCompare(b.name)), baseline);
         for (const [key, value] of Object.entries(cookies)) assert.ok(dashboardRequests.at(-1).includes(`${key}=${value}`));
@@ -83,8 +83,8 @@ try {
         const { activeProxy } = await call(() => chrome.storage.local.get('activeProxy'));
         assert.ok(activeProxy.username.includes(`-country-${country}`));
         const before = log.length;
-        await site.goto('https://example.org:18443/');
-        const observed = log.slice(before).find(entry => entry.target === 'example.org:18443');
+        await site.goto(`https://example.org:${port}/`);
+        const observed = log.slice(before).find(entry => entry.target === `example.org:${port}`);
         assert.equal(observed?.user, activeProxy.username, 'new and previously open sites must use the new credentials');
         return activeProxy;
       };
@@ -113,26 +113,26 @@ try {
       const { activeProxy: rotating } = await call(() => chrome.storage.local.get('activeProxy'));
       const beforeRotating = log.length;
       await site.reload();
-      assert.equal(log.slice(beforeRotating).find(entry => entry.target === 'example.org:18443')?.user, rotating.username);
+      assert.equal(log.slice(beforeRotating).find(entry => entry.target === `example.org:${port}`)?.user, rotating.username);
       await verifyCookies('switch to rotating sessions');
 
       await call(() => chrome.runtime.sendMessage({ type: 'proxy:disconnect' }));
       await verifyCookies('disconnect');
       const beforeDisconnect = log.length;
       await site.reload();
-      assert.equal(log.slice(beforeDisconnect).filter(entry => entry.target === 'example.org:18443').length, 0);
+      assert.equal(log.slice(beforeDisconnect).filter(entry => entry.target === `example.org:${port}`).length, 0);
       const config = await call(() => chrome.proxy.settings.get({}));
       assert.notEqual(config.levelOfControl, 'controlled_by_this_extension');
       console.log(`PASS ${name}: disconnect stops proxy use by an already open site`);
 
       // Exhaustion must fail explicitly, never report a stale location as live.
-      await call(async () => {
+      await call(async ports => {
         const rememberedLogins = {};
         for (const host of ['p.shifter.io', 'fra.p.shifter.io', 'ams.p.shifter.io', 'lon.p.shifter.io']) {
-          for (const port of [18081, 18082, 18083]) rememberedLogins[`${host}:${port}`] = { username: 'old-login', at: 1 };
+          for (const port of ports) rememberedLogins[`${host}:${port}`] = { username: 'old-login', at: 1 };
         }
         await chrome.storage.local.set({ rememberedLogins });
-      });
+      }, GATEWAY_PORTS);
       const exhausted = await call(() => chrome.runtime.sendMessage({ type: 'proxy:connect', membershipId: 'DEMO1', target: { kind: 'residential' } }));
       assert.equal(exhausted.ok, false);
       assert.match(exhausted.error, /Restart your browser/);
