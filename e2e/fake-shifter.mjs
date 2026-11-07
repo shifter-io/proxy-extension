@@ -1,13 +1,19 @@
-// Stand-in Shifter for end-to-end tests:
-//   API      http://127.0.0.1:18080  the /api/v1 endpoints the extension uses
-//   gateway  :18081 :18082 :18083     login-protected HTTP proxy (like 443 / 80 / 8080)
+// Stand-in Shifter for end-to-end tests, on ports from E2E_PORT_BASE
+// (DEFAULT_PORT_BASE when unset; scripts running side by side each pass their own):
+//   API      http://127.0.0.1:<base>    the /api/v1 endpoints the extension uses
+//   gateway  :<base+1> to :<base+3>     login-protected HTTP proxy (like 443 / 80 / 8080)
 // The gateway logs every request with the username it was given, so tests
 // can see exactly which login the browser sent.
 import http from 'node:http';
 import net from 'node:net';
 
-export const API_URL = 'http://127.0.0.1:18080';
-export const GATEWAY_PORTS = [18081, 18082, 18083];
+const DEFAULT_PORT_BASE = 18_080;
+const BASE = Number(process.env.E2E_PORT_BASE ?? DEFAULT_PORT_BASE);
+if (!Number.isInteger(BASE) || BASE < 1 || BASE > 65_532) {
+  throw new Error(`E2E_PORT_BASE must be an integer port from 1 to 65532 (it and the next three are used), not "${process.env.E2E_PORT_BASE}"`);
+}
+export const API_URL = `http://127.0.0.1:${BASE}`;
+export const GATEWAY_PORTS = [BASE + 1, BASE + 2, BASE + 3];
 export const KEY = 'k'.repeat(64);
 const PASSWORD = 'pw-secret';
 let options = {};
@@ -162,7 +168,7 @@ export function start(testOptions = {}) {
   options = testOptions;
   log.length = 0;
   return Promise.all([
-    new Promise((r) => api.listen(18080, '127.0.0.1', r)),
+    new Promise((r) => api.listen(BASE, '127.0.0.1', r)),
     // '::' so both 127.0.0.1 and *.localhost (which may resolve to ::1) reach it.
     ...gateways.map((g, i) => new Promise((r) => g.listen(GATEWAY_PORTS[i], '::', r))),
   ]);

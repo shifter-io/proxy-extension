@@ -6,13 +6,12 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { buildExtension } from './build.mjs';
 import { drivers } from './drivers.mjs';
 import { API_URL, GATEWAY_PORTS, KEY, MEMBERSHIPS, PROXY_CONFIG, USAGE, log, start, stop } from './fake-shifter.mjs';
 
 const evidence = process.env.WORKSPACE_TEST_EVIDENCE;
 if (evidence) mkdirSync(evidence, { recursive: true });
-const root = fileURLToPath(new URL('..', import.meta.url));
 const scratch = mkdtempSync(join(tmpdir(), 'shifter-workspaces-'));
 writeFileSync(join(scratch, 'owner.json'), JSON.stringify({ owner: 'e2e/workspaces.mjs', purpose: 'Disposable local test build and TLS fixture', expires: new Date(Date.now() + 3600000).toISOString() }));
 const personal = { id: 'personal', name: 'Personal', role: 'owner', personal: true };
@@ -48,10 +47,10 @@ try {
     assert.ok(driver, `Unknown browser ${name}`);
     fixture();
     requests.length = 0;
-    execFileSync('npx', ['wxt', 'build', ...(name === 'firefox' ? ['-b', 'firefox'] : [])], {
-      cwd: root, stdio: 'pipe', env: { ...process.env, WXT_USE_MOCK: 'false', WXT_SHIFTER_BASE_URL: API_URL, WXT_GATEWAY_PORTS: GATEWAY_PORTS.join(','), WXT_OUT_DIR: join(scratch, 'build') },
+    const dir = await buildExtension({
+      browser: name, env: { WXT_USE_MOCK: 'false', WXT_SHIFTER_BASE_URL: API_URL, WXT_GATEWAY_PORTS: GATEWAY_PORTS.join(',') }, outDir: join(scratch, 'build'),
     });
-    const { browser, page } = await driver.launch(join(scratch, 'build', driver.build), { acceptInsecureCerts: true });
+    const { browser, page } = await driver.launch(dir, { acceptInsecureCerts: true });
     const wait = (fn, arg) => page.waitForFunction(fn, { timeout: 20000, polling: 100 }, arg);
     const body = () => page.evaluate(() => document.body.innerText);
     const capture = async label => {
