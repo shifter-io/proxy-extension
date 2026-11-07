@@ -6,7 +6,6 @@ on:
   schedule:
     - cron: "0 2 * * *"
   workflow_dispatch:
-  pull_request:  # TEMPORARY: one run before merge; removed in the next commit
 permissions:
   contents: read
 env:
