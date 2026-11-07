@@ -1,4 +1,5 @@
-# Merge checks for every ready pull request and every push to main
+# Merge checks for every ready pull request, every merge-queue test and
+# every push to main
 # (README.md, "Continuous integration").
 #
 # Every job runs on a fresh one-job CI-SelfHosted runner: [self-hosted, ci-4cpu],
@@ -26,6 +27,8 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
 
 # A push to main gets its own group, so no main run is cancelled or replaced
@@ -142,8 +145,8 @@ jobs:
             rm -rf "$dir" && mv -T "$tmp" "$dir"
           fi
           find "$tools" -mindepth 1 -maxdepth 1 -name 'actionlint-*' ! -name "actionlint-$ACTIONLINT_VERSION" -exec rm -rf {} +
-          # ci-2cpu, ci-4cpu and ci-8cpu are the self-hosted runners' labels.
-          "$dir/actionlint" -color -ignore 'label "ci-[248]cpu" is unknown'
+          # ci-2cpu to ci-32cpu are the self-hosted runners' labels.
+          "$dir/actionlint" -color -ignore 'label "ci-([248]|16|32)cpu" is unknown'
       - name: Toolchain
         if: env.CODE == 'true'
         run: |

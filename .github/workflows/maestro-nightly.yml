@@ -1,0 +1,37 @@
+# Maestro nightly: known-vulnerable dependencies. A failure becomes an issue; it never blocks PRs.
+# maestro-init writes this file only when it is missing: once a project adapts it, it is the project's.
+# The full test suite runs nightly through the project's own CI workflow (`schedule:` trigger).
+name: maestro-nightly
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  UV_VERSION: 0.12.10   # python stack: keep equal to ci.yml's pins
+  UV_SHA256: 173d95a0c32d18c896c46ba6fafbf3cf9c14ab74b033f81b76c883ef492a976b
+  PYTHON_VERSION: 3.12.14
+  PIP_AUDIT_VERSION: 2.9.0
+jobs:
+  audit:
+    runs-on: [self-hosted, ci-32cpu]
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Dependency audit
+        run: |
+          locks=$(git ls-files -- package-lock.json '*/package-lock.json')
+          [ -n "$locks" ] || { echo "no package-lock.json tracked"; exit 1; }
+          rc=0
+          for lock in $locks; do
+            dir=$(dirname "$lock")
+            echo "npm audit in $dir"
+            (cd "$dir" && npm audit --audit-level=high) || { echo "npm audit failed in $dir"; rc=1; }
+          done
+          exit "$rc"
