@@ -1,4 +1,4 @@
-# Maestro nightly: known-vulnerable dependencies. A failure becomes an issue; it never blocks PRs.
+# Maestro nightly: known-vulnerable dependencies. A failure opens one issue (failure-issue.yml); it never blocks PRs.
 # maestro-init writes this file only when it is missing: once a project adapts it, it is the project's.
 # The full test suite runs nightly through the project's own CI workflow (`schedule:` trigger).
 name: maestro-nightly
@@ -35,3 +35,12 @@ jobs:
             (cd "$dir" && npm audit --audit-level=high) || { echo "npm audit failed in $dir"; rc=1; }
           done
           exit "$rc"
+  report:
+    needs: audit
+    if: always() && needs.audit.result != 'success' && github.event_name == 'schedule'
+    permissions:
+      issues: write
+    uses: ./.github/workflows/failure-issue.yml
+    with:
+      title: Nightly dependency audit failed
+      summary: The nightly dependency audit found a high or critical advisory or could not run. Close this issue when the nightly is green.
