@@ -238,7 +238,7 @@ Every pull request that is ready for review and every merge-queue test runs `.gi
 | `workspaces-chrome`, `workspaces-firefox` | The workspace regression. |
 | `cookies` | The cookie regression with the Chrome and Edge builds. |
 
-The parts and their time limits live in `scripts/ci/parts.mjs`. A part marked slow (one that alone takes over 60 seconds) runs only on merge-queue tests, scheduled runs, and manual runs with `slow`; none is slow today.
+The parts and their time limits live in `scripts/ci/parts.mjs`. (Docs-only proof for #17; not merged.) A part marked slow (one that alone takes over 60 seconds) runs only on merge-queue tests, scheduled runs, and manual runs with `slow`; none is slow today.
 
 A pull request that touches only documentation (every changed file matches `^(README\.md|LICENSE|BUILD\.html|docs/.+|shifter_docs/.+|e2e/README\.md)$`) runs only the `docs` part, and the run prints the rule and the changed files. A draft pull request fails `gate` on GitHub's runner without starting a server ("draft: nothing is checked until it is ready"); marking it ready runs the checks. Pull requests from forks do not run CI: the servers refuse them, and a maintainer runs the checks on a branch of this repository before merging.
 
