@@ -57,11 +57,11 @@ env:
   # BUILD.html's toolchain; Node 24.21.0 ships npm 11.19.0.
   NODE_VERSION: 24.21.0
   NPM_VERSION: 11.19.0
-  # The Firefox release puppeteer pins (puppeteer 25.12.0 in
-  # e2e/package-lock.json: stable_156.0.1); bump both together. SHA-256 from
+  # The Firefox release puppeteer pins (puppeteer 25.16.0 in
+  # e2e/package-lock.json: stable_158.0.1); bump both together. SHA-256 from
   # the release's SHA256SUMS on archive.mozilla.org.
-  FIREFOX_VERSION: 156.0.1
-  FIREFOX_SHA256: 7405c0487fa3e517c1e20e5aec0ed14014185dad6357d99a59b53f65acb10ed6
+  FIREFOX_VERSION: 158.0.1
+  FIREFOX_SHA256: dce45470139242cf294eb6ada3d192a9bb334696842b02b71ade448a139eb41a
   # SHA-256 from the release's checksums file.
   ACTIONLINT_VERSION: 1.7.12
   ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
