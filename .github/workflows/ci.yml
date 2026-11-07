@@ -1,49 +1,56 @@
-# Merge checks for every ready pull request, every merge-queue test and
-# every push to main, and a full run of main every 6 hours
-# (README.md, "Continuous integration").
+# Merge checks for every ready pull request and every merge-queue test, and a
+# full run of main every 6 hours (README.md, "Continuous integration").
+# Pushes to main run nothing: the queue already tested each merge.
 #
-# Every job runs on a fresh one-job CI-SelfHosted runner: [self-hosted, ci-4cpu],
-# and [self-hosted, ci-2cpu] for changes.
-# The runners admit only the maintainer's pull requests from branches of this
-# repository, pushes to main and the maintainer's manual runs. Downloads and
-# the npm cache persist between runs under $CI_CACHE_DIR/proxy-extension; the
-# checkout and $RUNNER_TEMP do not.
+# gate is the one job and the one required check. It runs on one fresh
+# CI-SelfHosted server, [self-hosted, ci-8cpu] (a manual run may pick another
+# size): setup once, then every check and end-to-end part at the same time
+# (scripts/ci/parts.mjs, run by scripts/ci/run-parts.mjs). The servers admit
+# only the maintainer's pull requests from branches of this repository and the
+# maintainer's manual runs. Downloads and the npm cache persist between runs
+# under $CI_CACHE_DIR/proxy-extension; the checkout and $RUNNER_TEMP do not.
 #
-# Each runner is a fresh machine for one job, so no job waits for a machine
-# slot. The job limits keep their former slot margin until the CI-SelfHosted
-# reports show the jobs' times there; the end-to-end suites keep their own
-# step limits.
-#
-# A change that touches only documentation runs only the docs check (the
-# changes job decides). Draft pull requests run nothing until marked ready,
-# except gate, which fails on a draft because nothing was checked.
-#
-# gate is the one required check: it always runs and succeeds only when
-# changes, check and both e2e jobs ran and succeeded. When gate fails on a
-# scheduled run, or on a manual run with report_failure, report opens one
-# issue (failure-issue.yml); it never runs for a pull request or the queue.
+# A draft pull request fails gate on GitHub's runner without starting a server.
+# A pull request that touches only documentation runs only the docs part.
+# Slow parts run only on merge-queue tests, scheduled runs and manual runs with
+# slow. The live shifter.io check runs only on scheduled runs and manual runs
+# with live; an outage there leaves gate green and opens one issue (outage).
+# When gate fails on a scheduled run, or on a manual run with report_failure,
+# report opens one issue (failure-issue.yml). report and outage run on
+# GitHub's runner and never for a pull request or the queue.
 name: ci
 
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-  push:
-    branches: [main]
   merge_group:
     types: [checks_requested]
   schedule:
     - cron: "0 */6 * * *"
   workflow_dispatch:
     inputs:
+      runner:
+        description: The server size gate runs on.
+        type: choice
+        options: [ci-8cpu, ci-16cpu, ci-32cpu]
+        default: ci-8cpu
+      slow:
+        description: Run the slow parts too, as the merge queue does.
+        type: boolean
+        default: false
+      live:
+        description: Run the live shifter.io check, as a scheduled run does.
+        type: boolean
+        default: false
       report_failure:
         description: Open an issue if this run fails, as a scheduled run does.
         type: boolean
         default: false
 
-# A push to main gets its own group, so no main run is cancelled or replaced
-# by the next merge; a pull request's newer head still cancels its older run.
+# A pull request's newer head cancels its older run; every other run has its
+# own group, so manual runs and queue tests never replace each other.
 concurrency:
-  group: ci-${{ github.event_name == 'push' && github.sha || github.ref }}
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -72,54 +79,53 @@ env:
   npm_config_update_notifier: 'false'
 
 jobs:
-  # What the change touches. A pull request's checkout is the request merged
-  # into its base, so HEAD^1 is the base; a push to main is classified when it
-  # adds exactly one commit. Anything else runs every check.
-  changes:
-    name: changes
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    runs-on: [self-hosted, ci-2cpu]
-    timeout-minutes: 35
+  gate:
+    name: gate
+    runs-on: ${{ github.event.pull_request.draft && fromJSON('["ubuntu-latest"]') || fromJSON(format('["self-hosted","{0}"]', inputs.runner || 'ci-8cpu')) }}
+    timeout-minutes: 15
     outputs:
-      code: ${{ steps.diff.outputs.code }}
+      live_outage: ${{ steps.live.outputs.outage }}
     steps:
+      - name: Draft pull request
+        if: github.event.pull_request.draft
+        run: |
+          echo "::error::draft: nothing is checked until it is ready"
+          exit 1
+      # A pull request's checkout is the request merged into its base, so
+      # HEAD^1 is the base.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 2
           persist-credentials: false
-      - id: diff
+      - name: What changed
         env:
           EVENT: ${{ github.event_name }}
-          BEFORE: ${{ github.event.before }}
+          SLOW_INPUT: ${{ inputs.slow }}
+          LIVE: ${{ github.event_name == 'schedule' || inputs.live }}
         run: |
           code=true
-          if [ "$EVENT" = pull_request ] || { [ "$EVENT" = push ] && [ "$(git rev-parse -q --verify HEAD^1)" = "$BEFORE" ]; }; then
+          if [ "$EVENT" = pull_request ]; then
             files=$(git diff --name-only --no-renames HEAD^1 HEAD)
             docs='^(README\.md|LICENSE|BUILD\.html|docs/.+|shifter_docs/.+|e2e/README\.md)$'
             if [ -n "$files" ] && ! grep -qvE "$docs" <<< "$files"; then code=false; fi
+            {
+              echo "Docs-only rule: every changed file matches \`$docs\`."
+              echo
+              echo "Changed files:"
+              echo
+              echo '```'
+              echo "$files"
+              echo '```'
+              echo
+              if [ "$code" = false ]; then echo "Docs only: only the docs part runs."; else echo "Not docs only: every part runs."; fi
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "$EVENT: every part runs." | tee -a "$GITHUB_STEP_SUMMARY"
           fi
-          echo "code=$code" | tee -a "$GITHUB_OUTPUT"
-
-  # Runs for every ready change, so its result always means something: a
-  # docs-only change gets the docs check, any other change the whole list.
-  # A failed changes job fails this job instead of skipping it.
-  check:
-    name: check
-    needs: changes
-    if: ${{ !cancelled() && !github.event.pull_request.draft }}
-    runs-on: [self-hosted, ci-4cpu]
-    timeout-minutes: 45
-    env:
-      CODE: ${{ needs.changes.outputs.code }}
-    steps:
-      - name: The changes job must have succeeded
-        if: needs.changes.result != 'success'
-        env:
-          RESULT: ${{ needs.changes.result }}
-        run: echo "::error::changes job $RESULT" && exit 1
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+          slow=false
+          if [ "$EVENT" = merge_group ] || [ "$EVENT" = schedule ] || [ "$SLOW_INPUT" = true ]; then slow=true; fi
+          if [ "$LIVE" != true ]; then echo "live check: scheduled runs only" | tee -a "$GITHUB_STEP_SUMMARY"; fi
+          { echo "CODE=$code"; echo "SLOW=$slow"; } | tee -a "$GITHUB_ENV"
       - name: Use the runner's cache
         run: |
           : "${CI_CACHE_DIR:?is not set; this job needs the self-hosted CI runners}"
@@ -132,14 +138,14 @@ jobs:
             echo "PUPPETEER_CACHE_DIR=$cache/puppeteer"
             echo "TMPDIR=$RUNNER_TEMP"
           } >> "$GITHUB_ENV"
-      - name: docs/ matches its Markdown sources
-        env:
-          PYTHONUTF8: '1'
+      - name: Toolchain
+        if: env.CODE == 'true'
         run: |
-          python3 scripts/render-readme.py
-          git diff --exit-code --stat -- docs/ \
-            || { echo "::error::docs/ is out of date: run python3 scripts/render-readme.py and commit the result"; exit 1; }
-      - name: Lint the workflows (actionlint)
+          echo "node $(node --version), npm $(npm --version)"
+          if [ "$(node --version)" != "v$NODE_VERSION" ] || [ "$(npm --version)" != "$NPM_VERSION" ]; then
+            echo "::error::expected node v$NODE_VERSION and npm $NPM_VERSION"; exit 1
+          fi
+      - name: actionlint ${{ env.ACTIONLINT_VERSION }}
         if: env.CODE == 'true'
         run: |
           tools="$CI_CACHE_DIR/proxy-extension/tools"
@@ -154,102 +160,9 @@ jobs:
             rm -rf "$dir" && mv -T "$tmp" "$dir"
           fi
           find "$tools" -mindepth 1 -maxdepth 1 -name 'actionlint-*' ! -name "actionlint-$ACTIONLINT_VERSION" -exec rm -rf {} +
-          # ci-2cpu to ci-32cpu are the self-hosted runners' labels.
-          "$dir/actionlint" -color -ignore 'label "ci-([248]|16|32)cpu" is unknown'
-      - name: Toolchain
-        if: env.CODE == 'true'
-        run: |
-          echo "node $(node --version), npm $(npm --version)"
-          if [ "$(node --version)" != "v$NODE_VERSION" ] || [ "$(npm --version)" != "$NPM_VERSION" ]; then
-            echo "::error::expected node v$NODE_VERSION and npm $NPM_VERSION"; exit 1
-          fi
-      - name: npm ci
-        if: env.CODE == 'true'
-        run: npm ci
-      - name: Type check
-        if: env.CODE == 'true'
-        run: npm run compile
-      - name: Production builds (Chrome, Firefox, Edge) and the mock build
-        if: env.CODE == 'true'
-        run: |
-          npm run build
-          npm run build:firefox
-          npx wxt build -b edge
-          npm run build:mock
-      - name: Install and builds leave the tree clean
-        if: env.CODE == 'true'
-        run: |
-          status=$(git status --porcelain)
-          [ -z "$status" ] || { echo "$status"; echo "::error::npm ci or a build changed files or wrote outside ignored paths"; exit 1; }
-
-  # One job per browser keeps the check names stable; a docs-only change
-  # passes at once. Chrome is the runner's Chrome for Testing, Firefox the
-  # pinned release above. Every suite runs offline against the local
-  # stand-in API (e2e/README.md), and each runs even after an earlier one
-  # failed, so one run shows every failure.
-  e2e:
-    name: e2e (${{ matrix.browser }})
-    needs: changes
-    if: ${{ !cancelled() && !github.event.pull_request.draft }}
-    runs-on: [self-hosted, ci-4cpu]
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        browser: [chrome, firefox]
-    env:
-      BROWSER: ${{ matrix.browser }}
-      CODE: ${{ needs.changes.outputs.code }}
-    steps:
-      - name: The changes job must have succeeded
-        if: needs.changes.result != 'success'
-        env:
-          RESULT: ${{ needs.changes.result }}
-        run: echo "::error::changes job $RESULT" && exit 1
-      - name: Docs-only change
-        if: needs.changes.result == 'success' && env.CODE != 'true'
-        run: echo "Only documentation changed; the end-to-end suites do not run."
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: env.CODE == 'true'
-        with:
-          persist-credentials: false
-      - name: Use the runner's cache
-        if: env.CODE == 'true'
-        run: |
-          : "${CI_CACHE_DIR:?is not set; this job needs the self-hosted CI runners}"
-          cache="$CI_CACHE_DIR/proxy-extension"
-          mkdir -p "$cache/npm" "$cache/puppeteer" "$cache/tools"
-          # Partial downloads a cancelled run left behind.
-          find "$cache/tools" -mindepth 1 -maxdepth 1 -name '.*' -mmin +60 -exec rm -rf {} +
-          {
-            echo "npm_config_cache=$cache/npm"
-            echo "PUPPETEER_CACHE_DIR=$cache/puppeteer"
-            echo "TMPDIR=$RUNNER_TEMP"
-          } >> "$GITHUB_ENV"
-      - name: Toolchain
-        if: env.CODE == 'true'
-        run: |
-          echo "node $(node --version), npm $(npm --version)"
-          if [ "$(node --version)" != "v$NODE_VERSION" ] || [ "$(npm --version)" != "$NPM_VERSION" ]; then
-            echo "::error::expected node v$NODE_VERSION and npm $NPM_VERSION"; exit 1
-          fi
-      - name: npm ci
-        if: env.CODE == 'true'
-        run: npm ci
-      - name: npm ci (e2e, without browser downloads)
-        if: env.CODE == 'true'
-        working-directory: e2e
-        run: npm ci --ignore-scripts
-      - name: Chrome for Testing from the runner
-        if: env.CODE == 'true' && matrix.browser == 'chrome'
-        run: |
-          bin=$(readlink -f "$(command -v google-chrome)")
-          version=$("$bin" --version)
-          echo "$bin: $version"
-          [[ "$version" == *"Chrome for Testing"* ]] || { echo "::error::$bin is not Chrome for Testing"; exit 1; }
-          { echo "PUPPETEER_EXECUTABLE_PATH=$bin"; echo "BROWSER_READY=true"; } >> "$GITHUB_ENV"
+          echo "ACTIONLINT=$dir/actionlint" >> "$GITHUB_ENV"
       - name: Firefox ${{ env.FIREFOX_VERSION }}
-        if: env.CODE == 'true' && matrix.browser == 'firefox'
+        if: env.CODE == 'true'
         run: |
           tools="$CI_CACHE_DIR/proxy-extension/tools"
           dir="$tools/firefox-$FIREFOX_VERSION"
@@ -265,58 +178,43 @@ jobs:
           find "$tools" -mindepth 1 -maxdepth 1 -name 'firefox-*' ! -name "firefox-$FIREFOX_VERSION" -exec rm -rf {} +
           # Firefox loads GTK 3 and X11 libraries even when headless. Its own
           # libraries (NSS included) sit next to libxul.so.
-          missing=$(LD_LIBRARY_PATH="$dir/firefox" ldd "$dir/firefox/libxul.so" | grep 'not found' || true)
+          missing=$(LD_LIBRARY_PATH="$dir/firefox" ldd "$dir/firefox/libxul.so" | awk '/not found/')
           [ -z "$missing" ] || { echo "$missing"; echo "::error::this runner lacks the system libraries Firefox needs (listed above)"; exit 1; }
           "$dir/firefox/firefox" --version
-          { echo "PUPPETEER_EXECUTABLE_PATH=$dir/firefox/firefox"; echo "BROWSER_READY=true"; } >> "$GITHUB_ENV"
-      - name: Suite (offline)
-        if: ${{ !cancelled() && env.BROWSER_READY == 'true' }}
-        timeout-minutes: 10
-        run: npm run e2e -- "$BROWSER" --offline
-      - name: Toolbar
-        if: ${{ !cancelled() && env.BROWSER_READY == 'true' }}
-        timeout-minutes: 6
-        run: node e2e/toolbar.mjs "$BROWSER"
-      - name: Usage
-        if: ${{ !cancelled() && env.BROWSER_READY == 'true' }}
-        timeout-minutes: 6
-        run: node e2e/usage.mjs "$BROWSER"
-      - name: Workspaces
-        if: ${{ !cancelled() && env.BROWSER_READY == 'true' }}
-        timeout-minutes: 6
-        run: node e2e/workspaces.mjs "$BROWSER"
-      - name: Cookies (Chrome and Edge builds)
-        if: ${{ !cancelled() && env.BROWSER_READY == 'true' && matrix.browser == 'chrome' }}
-        timeout-minutes: 6
-        run: node e2e/cookies.mjs
-      - name: Cache size
-        if: ${{ always() && env.CODE == 'true' }}
+          echo "FIREFOX_BIN=$dir/firefox/firefox" >> "$GITHUB_ENV"
+      - name: Chrome for Testing from the runner
+        if: env.CODE == 'true'
         run: |
-          du -sh "$CI_CACHE_DIR/proxy-extension" || true
-          df -h "$CI_CACHE_DIR" || true
-
-  # The one required check. It always runs, even when a job it needs failed,
-  # was skipped or was cancelled, because a skipped required check counts as
-  # passed; it succeeds only when every job it needs succeeded.
-  gate:
-    name: gate
-    needs: [changes, check, e2e]
-    if: always()
-    runs-on: [self-hosted, ci-2cpu]
-    timeout-minutes: 5
-    steps:
-      - name: Every check ran and succeeded
-        env:
-          CHANGES: ${{ needs.changes.result }}
-          CHECK: ${{ needs.check.result }}
-          E2E: ${{ needs.e2e.result }}
+          bin=$(readlink -f "$(command -v google-chrome)")
+          version=$("$bin" --version)
+          echo "$bin: $version"
+          [[ "$version" == *"Chrome for Testing"* ]] || { echo "::error::$bin is not Chrome for Testing"; exit 1; }
+          echo "CHROME_BIN=$bin" >> "$GITHUB_ENV"
+      - name: npm ci, and npm ci in e2e/ (without browser downloads), side by side
+        if: env.CODE == 'true'
         run: |
+          npm ci &
+          root=$!
+          (cd e2e && npm ci --ignore-scripts) &
+          e2e=$!
           failed=0
-          for job in "changes=$CHANGES" "check=$CHECK" "e2e=$E2E"; do
-            echo "$job"
-            [ "${job#*=}" = success ] || { echo "::error::job ${job%%=*} is ${job#*=}, not success"; failed=1; }
-          done
+          wait "$root" || { echo "::error::npm ci failed"; failed=1; }
+          wait "$e2e" || { echo "::error::npm ci in e2e/ failed"; failed=1; }
           exit "$failed"
+      - name: Checks and tests in parallel
+        run: |
+          args=(--parts scripts/ci/parts.mjs --logs "$RUNNER_TEMP/parts")
+          if [ "$SLOW" = true ]; then args+=(--slow); fi
+          if [ "$CODE" != true ]; then args+=(--only docs); fi
+          node scripts/ci/run-parts.mjs "${args[@]}"
+      - name: Live check against shifter.io (scheduled runs only)
+        id: live
+        if: github.event_name == 'schedule' || inputs.live
+        run: node scripts/ci/live-check.mjs
+      - name: Install, builds and tests leave the tree clean
+        run: |
+          status=$(git status --porcelain)
+          [ -z "$status" ] || { echo "$status"; echo "::error::npm ci, a build or a test changed files or wrote outside ignored paths"; exit 1; }
 
   # A failed scheduled run opens one issue, or names the open one. It is not
   # a required check.
@@ -330,3 +228,16 @@ jobs:
     with:
       title: Full CI run failed on ${{ github.ref_name }}
       summary: A scheduled full CI run failed. Close this issue when the next scheduled run is green.
+
+  # shifter.io did not answer the live check: gate stays green and one issue
+  # says so (failure-issue.yml reuses an open one with the same title).
+  outage:
+    name: outage
+    needs: gate
+    if: always() && needs.gate.outputs.live_outage == 'true'
+    permissions:
+      issues: write
+    uses: ./.github/workflows/failure-issue.yml
+    with:
+      title: "External outage: shifter.io did not answer the scheduled live check"
+      summary: "External outage, not a code failure: shifter.io gave no answer, a 5xx or a 429 when the scheduled run checked it, so the live check did not run. Pull requests and the merge queue never run this check, so nothing is blocked. Close this issue when a scheduled run's live check passes again."
