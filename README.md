@@ -221,7 +221,7 @@ Run `python3 scripts/render-readme.py` after editing the README or reference doc
 
 ### Continuous integration
 
-Every pull request that is ready for review and every push to `main` runs `.github/workflows/ci.yml` on the project's self-hosted runners.
+Every pull request that is ready for review, every merge-queue test, and every push to `main` runs `.github/workflows/ci.yml` on the project's self-hosted runners.
 
 | Check | What it runs |
 | --- | --- |
@@ -229,6 +229,14 @@ Every pull request that is ready for review and every push to `main` runs `.gith
 | `e2e (chrome)` | The offline end-to-end suite and the toolbar, usage, workspace, and cookie regressions in Chrome for Testing. |
 | `e2e (firefox)` | The offline end-to-end suite and the toolbar, usage, and workspace regressions in Firefox. |
 | `gate` | Runs after the others, even when one of them failed or was skipped, and succeeds only when `changes`, `check`, and both `e2e` jobs succeeded. It is the one check a merge requires. |
+
+Three more workflows come from Maestro, the project's task tooling:
+
+| Check | What it runs |
+| --- | --- |
+| `maestro-policy` | On every pull request: its size, that it holds no private data, and that it carries no AI attribution. |
+| `maestro-queue` | On every merge-queue test: confirms the pull request passed `maestro/review`, `maestro/qa`, and `maestro-policy` on its own head. |
+| `maestro-nightly` | Daily: `npm audit --audit-level=high` in every folder with a tracked `package-lock.json`. It never blocks a pull request. |
 
 Draft pull requests run nothing until they are marked ready, except `gate`, which fails because nothing was checked. A change that touches only documentation runs only the docs check. Pull requests from forks do not run CI; a maintainer runs the checks on a branch of this repository before merging.
 

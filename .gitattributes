@@ -1,0 +1,4 @@
+# Refreshed verbatim by maestro-init; not counted toward PR size.
+.github/maestro/policy.py linguist-generated=true
+.github/workflows/maestro-policy.yml linguist-generated=true
+.github/workflows/maestro-queue.yml linguist-generated=true
