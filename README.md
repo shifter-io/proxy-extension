@@ -238,6 +238,8 @@ Every pull request that is ready for review and every merge-queue test runs `.gi
 | `workspaces-chrome`, `workspaces-firefox` | The workspace regression. |
 | `cookies` | The cookie regression with the Chrome and Edge builds. |
 
+The pinned tools and npm packages come from a cache on the server, so a run does not depend on GitHub's release downloads, archive.mozilla.org, or the npm registry being up. Each night the CI server image is rebuilt from `main`, and its hook `.github/ciod/prefetch.sh` fills that cache: actionlint and Firefox at the versions and SHA-256 sums in `ci.yml`'s `env:` block, and the npm cache from both lockfiles. `gate` takes a tool from the cache and downloads it only right after its pin changes, until the next nightly image; `scripts/ci/fetch-tools.sh` does the download, checksum check, and unpacking for both, and retries a failed download for about a minute. `npm ci` prefers the cached packages and fetches only what the cache lacks.
+
 The parts and their time limits live in `scripts/ci/parts.mjs`. A part marked slow (one that alone takes over 60 seconds) runs only on merge-queue tests, scheduled runs, and manual runs with `slow`; none is slow today.
 
 A pull request that touches only documentation (every changed file matches `^(README\.md|LICENSE|BUILD\.html|docs/.+|shifter_docs/.+|e2e/README\.md)$`) runs only the `docs` part, and the run prints the rule and the changed files. A draft pull request fails `gate` on GitHub's runner without starting a server ("draft: nothing is checked until it is ready"); marking it ready runs the checks. Pull requests from forks do not run CI: the servers refuse them, and a maintainer runs the checks on a branch of this repository before merging.
