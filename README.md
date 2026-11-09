@@ -221,14 +221,39 @@ Run `python3 scripts/render-readme.py` after editing the README or reference doc
 
 ### Continuous integration
 
-Every pull request that is ready for review, every merge-queue test, and every push to `main` runs `.github/workflows/ci.yml` on the project's self-hosted runners. Every 6 hours a scheduled run tests the head of `main` with every check.
+Every pull request that is ready for review and every merge-queue test runs `.github/workflows/ci.yml`. Every 6 hours a scheduled run tests the head of `main` with every check. Pushes to `main` run nothing: the merge queue already tested each merge.
 
-| Check | What it runs |
+`gate` is the one job and the one check a merge requires. It runs on one fresh self-hosted server, `ci-8cpu`: it sets up the toolchain, the pinned actionlint and Firefox, Chrome for Testing and both `npm ci` installs once, then runs every part below at the same time with `scripts/ci/run-parts.mjs`. Every part runs to its end even when another fails, and the run's summary lists each part with its result, time, and `PASS` line count. Last, `gate` checks that installs, builds, and tests left the checkout clean. On `ci-8cpu` the parts take about 60 to 70 seconds and the whole job under 2 minutes; `ci-16cpu` and `ci-32cpu` were measured no faster, because the parts wait on one another's builds (one WXT build at a time), not on the processors.
+
+| Part | What it runs |
 | --- | --- |
-| `check` | `npm run compile`; production builds for Chrome, Firefox, and Edge; the mock build; a check that the HTML guides in `docs/` match their Markdown sources; and a lint of the workflow. |
-| `e2e (chrome)` | The offline end-to-end suite and the toolbar, usage, workspace, and cookie regressions in Chrome for Testing. |
-| `e2e (firefox)` | The offline end-to-end suite and the toolbar, usage, and workspace regressions in Firefox. |
-| `gate` | Runs after the others, even when one of them failed or was skipped, and succeeds only when `changes`, `check`, and both `e2e` jobs succeeded. It is the one check a merge requires. |
+| `docs` | Checks that the HTML guides in `docs/` match their Markdown sources. |
+| `actionlint` | Lints the workflows. |
+| `compile` | `npm run compile`. |
+| `builds` | Production builds for Chrome, Firefox, and Edge, then the mock build. |
+| `selftest` | The tests of the CI and build scripts (`scripts/**/*.test.mjs`). |
+| `suite-chrome`, `suite-firefox` | The offline end-to-end suite. |
+| `toolbar-chrome`, `toolbar-firefox` | The toolbar regression. |
+| `usage-chrome`, `usage-firefox` | The usage regression. |
+| `workspaces-chrome`, `workspaces-firefox` | The workspace regression. |
+| `cookies` | The cookie regression with the Chrome and Edge builds. |
+
+The parts and their time limits live in `scripts/ci/parts.mjs`. A part marked slow (one that alone takes over 60 seconds) runs only on merge-queue tests, scheduled runs, and manual runs with `slow`; none is slow today.
+
+A pull request that touches only documentation (every changed file matches `^(README\.md|LICENSE|BUILD\.html|docs/.+|shifter_docs/.+|e2e/README\.md)$`) runs only the `docs` part, and the run prints the rule and the changed files. A draft pull request fails `gate` on GitHub's runner without starting a server ("draft: nothing is checked until it is ready"); marking it ready runs the checks. Pull requests from forks do not run CI: the servers refuse them, and a maintainer runs the checks on a branch of this repository before merging.
+
+Scheduled runs also check the extension against the real shifter.io (`scripts/ci/live-check.mjs`), with a fixed invalid key and no credentials, in Chrome and Firefox. Pull requests and merge-queue tests never run it; their summary says "live check: scheduled runs only". If shifter.io gives no answer, a 5xx, or a 429, the check does not run and is reported as "NOT RUN: external outage", never as a pass: `gate` stays green, and the `outage` job opens one issue titled "External outage: shifter.io did not answer the scheduled live check". Close it when a scheduled run's live check passes again. If shifter.io answers but the extension cannot sign in as expected, `gate` fails.
+
+When a scheduled run fails, its `report` job opens one issue titled "Full CI run failed on main" with a link to the run, its event, ref, and commit. While that issue is open, later failed runs add neither a second issue nor a comment; close it when the next scheduled run is green. `report` and `outage` run on GitHub's runner, never for a pull request or a merge-queue test. GitHub stops the schedules of a public repository after 60 days without activity; a maintainer then turns each workflow back on in the Actions tab.
+
+A maintainer can start `ci.yml` by hand (Actions tab, or `gh workflow run ci.yml`) with these inputs:
+
+| Input | Effect |
+| --- | --- |
+| `runner` | The server size: `ci-8cpu` (the default), `ci-16cpu`, or `ci-32cpu`. |
+| `slow` | Also run the slow parts. |
+| `live` | Also run the live shifter.io check. |
+| `report_failure` | Open the failure issue if the run fails, as a scheduled run does. |
 
 Three more workflows come from Maestro, the project's task tooling:
 
@@ -237,10 +262,6 @@ Three more workflows come from Maestro, the project's task tooling:
 | `maestro-policy` | On every pull request: its size, that it holds no private data, and that it carries no AI attribution. |
 | `maestro-queue` | On every merge-queue test: confirms the pull request passed `maestro/review`, `maestro/qa`, and `maestro-policy` on its own head. |
 | `maestro-nightly` | Daily: `npm audit --audit-level=high` in every folder with a tracked `package-lock.json`. A failed audit opens the issue "Nightly dependency audit failed". It never blocks a pull request. |
-
-When a scheduled run fails, its `report` job opens one issue titled "Full CI run failed on main" with a link to the run, its event, ref, and commit. While that issue is open, later failed runs add neither a second issue nor a comment; close it when the next scheduled run is green. A manual run of `ci.yml` with `report_failure` set reports the same way. `report` never runs for a pull request or a merge-queue test, and `gate` stays the only required check. GitHub stops the schedules of a public repository after 60 days without activity; a maintainer then turns each workflow back on in the Actions tab.
-
-Draft pull requests run nothing until they are marked ready, except `gate`, which fails because nothing was checked. A change that touches only documentation runs only the docs check. Pull requests from forks do not run CI; a maintainer runs the checks on a branch of this repository before merging.
 
 ## FAQ
 
