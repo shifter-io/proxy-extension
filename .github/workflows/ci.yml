@@ -8,7 +8,8 @@
 # (scripts/ci/parts.mjs, run by scripts/ci/run-parts.mjs). The servers admit
 # only the maintainer's pull requests from branches of this repository and the
 # maintainer's manual runs. Downloads and the npm cache persist between runs
-# under $CI_CACHE_DIR/proxy-extension; the checkout and $RUNNER_TEMP do not.
+# under $CI_CACHE_DIR/proxy-extension, and the nightly server image fills them
+# from main (.github/ciod/prefetch.sh); the checkout and $RUNNER_TEMP do not.
 #
 # A draft pull request fails gate on GitHub's runner without starting a server.
 # A pull request that touches only documentation runs only the docs part.
@@ -145,37 +146,18 @@ jobs:
           if [ "$(node --version)" != "v$NODE_VERSION" ] || [ "$(npm --version)" != "$NPM_VERSION" ]; then
             echo "::error::expected node v$NODE_VERSION and npm $NPM_VERSION"; exit 1
           fi
+      # actionlint and Firefox come from the cache the nightly server image
+      # fills (.github/ciod/prefetch.sh), or are downloaded right after a pin
+      # changes (scripts/ci/fetch-tools.sh).
       - name: actionlint ${{ env.ACTIONLINT_VERSION }}
         if: env.CODE == 'true'
         run: |
-          tools="$CI_CACHE_DIR/proxy-extension/tools"
-          dir="$tools/actionlint-$ACTIONLINT_VERSION"
-          if [ ! -x "$dir/actionlint" ]; then
-            tmp=$(mktemp -d "$tools/.actionlint-XXXXXX")
-            curl -fsSL --retry 3 -o "$tmp/a.tar.gz" \
-              "https://github.com/rhysd/actionlint/releases/download/v$ACTIONLINT_VERSION/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-            echo "$ACTIONLINT_SHA256  $tmp/a.tar.gz" | sha256sum -c --quiet -
-            tar -C "$tmp" -xzf "$tmp/a.tar.gz" actionlint
-            rm -f "$tmp/a.tar.gz"
-            rm -rf "$dir" && mv -T "$tmp" "$dir"
-          fi
-          find "$tools" -mindepth 1 -maxdepth 1 -name 'actionlint-*' ! -name "actionlint-$ACTIONLINT_VERSION" -exec rm -rf {} +
+          dir=$(bash scripts/ci/fetch-tools.sh actionlint)
           echo "ACTIONLINT=$dir/actionlint" >> "$GITHUB_ENV"
       - name: Firefox ${{ env.FIREFOX_VERSION }}
         if: env.CODE == 'true'
         run: |
-          tools="$CI_CACHE_DIR/proxy-extension/tools"
-          dir="$tools/firefox-$FIREFOX_VERSION"
-          if [ ! -x "$dir/firefox/firefox" ]; then
-            tmp=$(mktemp -d "$tools/.firefox-XXXXXX")
-            curl -fsSL --retry 3 -o "$tmp/firefox.tar.xz" \
-              "https://archive.mozilla.org/pub/firefox/releases/$FIREFOX_VERSION/linux-x86_64/en-US/firefox-$FIREFOX_VERSION.tar.xz"
-            echo "$FIREFOX_SHA256  $tmp/firefox.tar.xz" | sha256sum -c --quiet -
-            tar -C "$tmp" -xJf "$tmp/firefox.tar.xz"
-            rm -f "$tmp/firefox.tar.xz"
-            rm -rf "$dir" && mv -T "$tmp" "$dir"
-          fi
-          find "$tools" -mindepth 1 -maxdepth 1 -name 'firefox-*' ! -name "firefox-$FIREFOX_VERSION" -exec rm -rf {} +
+          dir=$(bash scripts/ci/fetch-tools.sh firefox)
           # Firefox loads GTK 3 and X11 libraries even when headless. Its own
           # libraries (NSS included) sit next to libxul.so.
           missing=$(LD_LIBRARY_PATH="$dir/firefox" ldd "$dir/firefox/libxul.so" | awk '/not found/')
@@ -193,9 +175,9 @@ jobs:
       - name: npm ci, and npm ci in e2e/ (without browser downloads), side by side
         if: env.CODE == 'true'
         run: |
-          npm ci &
+          npm ci --prefer-offline &
           root=$!
-          (cd e2e && npm ci --ignore-scripts) &
+          (cd e2e && npm ci --prefer-offline --ignore-scripts) &
           e2e=$!
           failed=0
           wait "$root" || { echo "::error::npm ci failed"; failed=1; }
