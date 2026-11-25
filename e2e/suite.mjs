@@ -32,6 +32,57 @@ const ext = (page, fn, arg) =>
 const connectedUsername = (page) =>
   ext(page, (x) => x.storage.local.get(['activeProxy', 'connection']).then((s) => (s.connection?.status === 'connected' ? s.activeProxy?.username : null)));
 
+/** Waits up to 10 s for `fn` in the page; false instead of a throw, so it can feed check(). */
+const until = (page, fn, arg) => waitFor(page, fn, arg, 10000).then(() => true, () => false);
+
+const toolbarTitle = (page) => ext(page, (x) => (x.action ?? x.browserAction).getTitle({}));
+
+/** `<html lang>` of a fresh popup whose browser prefers `languages` (Chromium: CDP runs it before the page). */
+async function automaticLang(browser, url, languages) {
+  const tab = await browser.newPage();
+  try {
+    await tab.evaluateOnNewDocument((langs) => {
+      Object.defineProperty(Navigator.prototype, 'languages', { get: () => langs, configurable: true });
+      Object.defineProperty(Navigator.prototype, 'language', { get: () => langs[0], configurable: true });
+    }, languages);
+    await tab.goto(url);
+    await tab.waitForFunction(() => document.getElementById('root')?.childElementCount > 0, { timeout: 15000 }).catch(() => undefined);
+    return await tab.evaluate(() => document.documentElement.lang);
+  } finally {
+    await tab.close();
+  }
+}
+
+/** Settings > Language, written the way the Language screen does (local:language), on a signed-in, disconnected Home. */
+async function checkLanguage(driver, browser, page, check) {
+  const setLanguage = (code) => ext(page, (x, code) => x.storage.local.set({ language: code }), code);
+  const shows = (s) => until(page, (s) => document.body.innerText.includes(s), s);
+  const lang = (code) => until(page, (code) => document.documentElement.lang === code, code);
+  const titled = (s) =>
+    until(page, (s) => {
+      const x = globalThis.browser ?? globalThis.chrome;
+      return (x.action ?? x.browserAction).getTitle({}).then((title) => title.includes(s));
+    }, s);
+
+  await setLanguage('de');
+  check('language de: popup re-renders in German', await shows('Nicht verbunden'), (await text(page)).split('\n').slice(0, 3).join(' | '));
+  check('language de: <html lang="de">', await lang('de'), await page.evaluate(() => document.documentElement.lang));
+  check('language de: German toolbar title', await titled('Nicht verbunden'), await toolbarTitle(page));
+
+  await setLanguage(null);
+  check('language null (Automatic): English again in an English browser', await shows('Not connected'), (await text(page)).split('\n').slice(0, 3).join(' | '));
+  check('language null: <html lang="en">', await lang('en'), await page.evaluate(() => document.documentElement.lang));
+  check('language null: English toolbar title', await titled('Not connected'), await toolbarTitle(page));
+
+  if (driver.name === 'chrome') {
+    const pt = await automaticLang(browser, page.url(), ['pt-PT']);
+    check('Automatic: browser pt-PT -> pt-BR', pt === 'pt-BR', pt);
+    const zh = await automaticLang(browser, page.url(), ['zh-TW']);
+    check('Automatic: browser zh-TW -> zh-Hans', zh === 'zh-Hans', zh);
+    await driver.focus(page);
+  }
+}
+
 const ipChecks = () => log.filter((l) => l.target.startsWith('ip-info.com'));
 const sidOf = (user) => /-sid-([a-z0-9]+)/.exec(user ?? '')?.[1];
 
@@ -63,6 +114,8 @@ export async function runSuite(driver, extDir, check) {
     const home = await text(page);
     check('valid key -> Home with the plan', home.includes('Spark') && home.includes('Full Geo'), home.split('\n').slice(0, 3).join(' | '));
     check('traffic from /user/usage', home.includes('3.8 GB') && home.includes('5 GB'), home.match(/[\d.]+ GB/g)?.join(' '));
+
+    await checkLanguage(driver, browser, page, check);
 
     // Connect: proxy + login + IP check
     await click(page, 'button[aria-label="Connect"]');

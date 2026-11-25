@@ -100,7 +100,8 @@ export function activeLanguage(): Language {
 
 /** The translation of `en` in the active language (English when missing). */
 export function t(en: string): string {
-  return catalog[en] ?? en;
+  // Own keys only: a key like "constructor" must not return Object.prototype's.
+  return Object.hasOwn(catalog, en) ? catalog[en]! : en;
 }
 
 /** t() with `{name}` placeholders filled from `args`. */
