@@ -1,0 +1,10 @@
+{
+  "extName": {
+    "message": "Shifter — Proxy & VPN",
+    "description": "Extension name in the store and the browser. Keep \"Shifter\" and \"Proxy & VPN\" as is."
+  },
+  "extDescription": {
+    "message": "お持ちの Shifter メンバーシップで、Shifter のレジデンシャルおよび ISP プロキシ経由でブラウジングできます。",
+    "description": "Store listing summary, at most 132 characters."
+  }
+}

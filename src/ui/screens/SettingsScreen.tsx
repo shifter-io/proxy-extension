@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { browser } from '#imports';
 import { formatDuration, formatMoney } from '@/lib/format';
+import { activeLanguage, LANGUAGE_NAMES, languageItem, t, tf } from '@/lib/i18n';
 import { normalizeRule } from '@/lib/proxy/bypass';
 import { gatewayLatencyItem } from '@/lib/proxy/gateways';
 import type { EntryPoint } from '@/lib/types';
@@ -16,7 +17,8 @@ const TTL_MIN = 30;
 const TTL_MAX = 24 * 3600;
 
 export function SettingsScreen() {
-  const { back, settings, updateSettings, session, signOut, activeMembership: m, connection } = useApp();
+  const { back, push, settings, updateSettings, session, signOut, activeMembership: m, connection } = useApp();
+  const [language] = useStorageItem(languageItem);
   const webrtcBlocked = connection.status === 'connected' && settings.webrtcProtection && connection.webrtc === 'unavailable';
   const residential = m?.type === 'residential' ? m : null;
   // Some plans don't allow sticky sessions; the gateway then rotates every request.
@@ -25,32 +27,32 @@ export function SettingsScreen() {
   const user = session?.user;
 
   return (
-    <Screen header={<TopBar onBack={back} title="Settings" />} bodyClassName="px-4 py-4 flex flex-col gap-6">
+    <Screen header={<TopBar onBack={back} title={t('Settings')} />} bodyClassName="px-4 py-4 flex flex-col gap-6">
       {/* Session */}
       <section>
-        <SectionLabel>IP session</SectionLabel>
+        <SectionLabel>{t('IP session')}</SectionLabel>
         <div className="sf-card flex flex-col gap-4">
           <div className="sf-segmented">
             <button className={`${sticky ? 'active' : ''} disabled:opacity-40 disabled:cursor-not-allowed`} disabled={!stickyAllowed} onClick={() => updateSettings({ sessionMode: 'sticky' })}>
-              <Icon name="clock" size={13} /> Sticky
+              <Icon name="clock" size={13} /> {t('Sticky')}
             </button>
             <button className={!sticky ? 'active' : ''} onClick={() => updateSettings({ sessionMode: 'rotating' })}>
-              <Icon name="shuffle" size={13} /> Rotating
+              <Icon name="shuffle" size={13} /> {t('Rotating')}
             </button>
           </div>
           <p className="text-[12.5px] leading-relaxed text-sf-text-tertiary -mt-1">
             {!stickyAllowed
-              ? 'This plan rotates the exit IP on every request; sticky sessions are not available.'
+              ? t('This plan rotates the exit IP on every request; sticky sessions are not available.')
               : sticky
-                ? 'Keep the same exit IP for a while. Best for logins, carts and anything with a session.'
-                : 'A fresh exit IP on every request. Best for scraping and price checks.'}
+                ? t('Keep the same exit IP for a while. Best for logins, carts and anything with a session.')
+                : t('A fresh exit IP on every request. Best for scraping and price checks.')}
           </p>
 
           {sticky && (
             <div>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[13px] font-medium text-sf-text-secondary">Session length (TTL)</span>
-                <span className="sf-mono text-[12px] text-sf-text-tertiary">{settings.ttlSeconds}s</span>
+                <span className="text-[13px] font-medium text-sf-text-secondary">{t('Session length (TTL)')}</span>
+                <span className="sf-mono text-[12px] text-sf-text-tertiary">{tf('{n}s', { n: settings.ttlSeconds })}</span>
               </div>
               <div className="grid grid-cols-5 gap-1.5">
                 {TTL_PRESETS.map((s) => (
@@ -85,22 +87,22 @@ export function SettingsScreen() {
 
       {/* Targeting + privacy */}
       <section>
-        <SectionLabel>Connection</SectionLabel>
+        <SectionLabel>{t('Connection')}</SectionLabel>
         <div className="sf-card !p-0 divide-y divide-sf-border-subtle">
           {residential && (
             <SwitchRow
-              title="Strict location"
-              body="Only use IPs from the exact state, city or ISP you picked, never a wider area. Fails if none is free."
+              title={t('Strict location')}
+              body={t('Only use IPs from the exact state, city or ISP you picked, never a wider area. Fails if none is free.')}
               checked={settings.strict}
               onChange={(strict) => updateSettings({ strict })}
             />
           )}
           <SwitchRow
-            title="WebRTC leak protection"
-            body="Stop sites from seeing your real IP through WebRTC while connected."
+            title={t('WebRTC leak protection')}
+            body={t('Stop sites from seeing your real IP through WebRTC while connected.')}
             warning={
               webrtcBlocked
-                ? 'Not active: another extension or a browser policy controls WebRTC. Turn that off to use this protection.'
+                ? t('Not active: another extension or a browser policy controls WebRTC. Turn that off to use this protection.')
                 : undefined
             }
             checked={settings.webrtcProtection}
@@ -112,9 +114,27 @@ export function SettingsScreen() {
 
       <BypassList list={settings.bypassList} onChange={(bypassList) => updateSettings({ bypassList })} />
 
+      {/* Language */}
+      <section>
+        <SectionLabel>{t('Language')}</SectionLabel>
+        <div className="sf-card !p-0">
+          <button
+            type="button"
+            onClick={() => push({ name: 'language' })}
+            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.03]"
+          >
+            <span className="flex-1 min-w-0 text-[13.5px] font-medium truncate">{t('Extension language')}</span>
+            <span className="min-w-0 truncate text-[12.5px] text-sf-text-tertiary">
+              {language ? LANGUAGE_NAMES[language] : tf('Automatic ({language})', { language: LANGUAGE_NAMES[activeLanguage()] })}
+            </span>
+            <Icon name="chevronRight" size={15} className="text-sf-text-muted shrink-0" />
+          </button>
+        </div>
+      </section>
+
       {/* Account */}
       <section>
-        <SectionLabel>Account</SectionLabel>
+        <SectionLabel>{t('Account')}</SectionLabel>
         <div className="sf-card !p-0 divide-y divide-sf-border-subtle">
           {user && (
             <div className="flex items-center gap-3 px-4 py-3">
@@ -128,7 +148,7 @@ export function SettingsScreen() {
               {user.walletBalance != null && (
                 <div className="text-right shrink-0">
                   <div className="sf-mono text-[13px] font-semibold">{formatMoney(user.walletBalance, user.currency)}</div>
-                  <div className="text-[11px] text-sf-text-muted">Wallet</div>
+                  <div className="text-[11px] text-sf-text-muted">{t('Wallet')}</div>
                 </div>
               )}
             </div>
@@ -138,20 +158,20 @@ export function SettingsScreen() {
               <Icon name="lock" size={15} />
             </span>
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-medium">API key</div>
+              <div className="text-[13px] font-medium">{t('API key')}</div>
               <div className="text-[11.5px] text-sf-text-muted sf-mono">{maskKey(session?.apiKey)}</div>
             </div>
           </div>
-          <LinkRow onClick={() => openExternal(SHIFTER_URLS.panel)}>Open Shifter dashboard</LinkRow>
-          <LinkRow onClick={() => openExternal(SHIFTER_URLS.support)}>Help &amp; support</LinkRow>
+          <LinkRow onClick={() => openExternal(SHIFTER_URLS.panel)}>{t('Open Shifter dashboard')}</LinkRow>
+          <LinkRow onClick={() => openExternal(SHIFTER_URLS.support)}>{t('Help & support')}</LinkRow>
         </div>
         <button type="button" className="sf-btn sf-btn-danger sf-btn-sm w-full mt-3" onClick={() => void signOut()}>
-          <Icon name="logout" size={14} /> Sign out
+          <Icon name="logout" size={14} /> {t('Sign out')}
         </button>
       </section>
 
       <p className="text-center text-[11px] text-sf-text-faint pb-1">
-        Shifter extension v{browser.runtime.getManifest().version}
+        {tf('Shifter extension v{version}', { version: browser.runtime.getManifest().version })}
       </p>
     </Screen>
   );
@@ -167,9 +187,9 @@ function TtlStepper({ value, onChange }: { value: number; onChange: (v: number) 
   const clamp = (v: number) => Math.min(TTL_MAX, Math.max(TTL_MIN, Math.round(v) || TTL_MIN));
   return (
     <div className="mt-2.5 flex items-center gap-2">
-      <span className="text-[12px] text-sf-text-muted flex-1">Custom (seconds)</span>
+      <span className="text-[12px] text-sf-text-muted flex-1">{t('Custom (seconds)')}</span>
       <div className="flex items-center h-8 rounded-md border border-sf-border-input bg-sf-bg-input overflow-hidden">
-        <button type="button" className="w-8 h-full text-sf-text-tertiary hover:text-sf-text-primary hover:bg-white/5" onClick={() => onChange(clamp(value - 30))} aria-label="Decrease">
+        <button type="button" className="w-8 h-full text-sf-text-tertiary hover:text-sf-text-primary hover:bg-white/5" onClick={() => onChange(clamp(value - 30))} aria-label={t('Decrease')}>
           −
         </button>
         <input
@@ -180,7 +200,7 @@ function TtlStepper({ value, onChange }: { value: number; onChange: (v: number) 
           max={TTL_MAX}
           onChange={(e) => onChange(clamp(Number(e.target.value)))}
         />
-        <button type="button" className="w-8 h-full text-sf-text-tertiary hover:text-sf-text-primary hover:bg-white/5" onClick={() => onChange(clamp(value + 30))} aria-label="Increase">
+        <button type="button" className="w-8 h-full text-sf-text-tertiary hover:text-sf-text-primary hover:bg-white/5" onClick={() => onChange(clamp(value + 30))} aria-label={t('Increase')}>
           +
         </button>
       </div>
@@ -211,25 +231,25 @@ function EntryPoints({
   const regions = [...new Set(list.map((e) => e.region))];
   return (
     <section>
-      <SectionLabel>Entry point</SectionLabel>
+      <SectionLabel>{t('Entry point')}</SectionLabel>
       <div className="sf-card !p-1.5 flex flex-col gap-0.5">
         <Row
           leading={<Icon name="layers" size={15} className="text-sf-text-tertiary" />}
-          title="Plan default"
-          subtitle={panelEntry ? `${panelEntry.city ?? panelEntry.region} · set in your dashboard` : 'As set in your dashboard'}
+          title={t('Plan default')}
+          subtitle={panelEntry ? tf('{place} · set in your dashboard', { place: panelEntry.city ?? t(panelEntry.region) }) : t('As set in your dashboard')}
           selected={value === null}
           onClick={() => onChange(null)}
         />
         {regions.map((region) => (
           <div key={region}>
-            <div className="px-3 pt-2.5 pb-1 sf-label !text-[10px]">{region}</div>
+            <div className="px-3 pt-2.5 pb-1 sf-label !text-[10px]">{t(region)}</div>
             {list
               .filter((e) => e.region === region)
               .map((e) => (
                 <Row
                   key={e.key}
                   leading={<Icon name={e.city ? 'pin' : 'globe'} size={15} className="text-sf-text-tertiary" />}
-                  title={e.city ?? 'Nearest region'}
+                  title={e.city ?? t('Nearest region')}
                   subtitle={
                     <span className="sf-mono">
                       {e.host}
@@ -244,7 +264,7 @@ function EntryPoints({
         ))}
       </div>
       <p className="mt-2 px-1 text-[12px] leading-relaxed text-sf-text-muted">
-        A fixed region keeps a sticky IP even when your own network changes.
+        {t('A fixed region keeps a sticky IP even when your own network changes.')}
       </p>
     </section>
   );
@@ -295,11 +315,13 @@ function PrivateWindowsRow() {
   const edge = !firefox && navigator.userAgent.includes('Edg/');
   return (
     <div className="px-4 py-3.5">
-      <div className="text-[13.5px] font-medium">Private windows</div>
+      <div className="text-[13.5px] font-medium">{t('Private windows')}</div>
       <p className="mt-0.5 text-[12px] leading-relaxed text-sf-text-tertiary">
         {firefox
-          ? 'Private windows open without Shifter. To use it there: Add-ons and themes → Shifter → Run in Private Windows → Allow.'
-          : `${edge ? 'InPrivate' : 'Incognito'} windows will ask for a proxy login. Allow Shifter there to connect them too.`}
+          ? t('Private windows open without Shifter. To use it there: Add-ons and themes → Shifter → Run in Private Windows → Allow.')
+          : edge
+            ? t('InPrivate windows will ask for a proxy login. Allow Shifter there to connect them too.')
+            : t('Incognito windows will ask for a proxy login. Allow Shifter there to connect them too.')}
       </p>
       {!firefox && (
         <button
@@ -307,7 +329,7 @@ function PrivateWindowsRow() {
           className="sf-link-btn text-[12px] mt-1.5 inline-flex items-center gap-1"
           onClick={() => void browser.tabs.create({ url: `${edge ? 'edge' : 'chrome'}://extensions/?id=${browser.runtime.id}` })}
         >
-          Open extension settings <Icon name="external" size={12} />
+          {t('Open extension settings')} <Icon name="external" size={12} />
         </button>
       )}
     </div>
@@ -338,9 +360,9 @@ function BypassList({ list, onChange }: { list: string[]; onChange: (l: string[]
 
   return (
     <section>
-      <SectionLabel>Bypass proxy for</SectionLabel>
+      <SectionLabel>{t('Bypass proxy for')}</SectionLabel>
       <div className="sf-card flex flex-col gap-3">
-        <p className="text-[12px] leading-relaxed text-sf-text-tertiary -mb-0.5">These sites always load directly, without Shifter. *.example.com includes example.com.</p>
+        <p className="text-[12px] leading-relaxed text-sf-text-tertiary -mb-0.5">{t('These sites always load directly, without Shifter. *.example.com includes example.com.')}</p>
         <div className="flex flex-wrap gap-1.5">
           {list.map((h) => (
             <span key={h} className="inline-flex items-center gap-1 h-[26px] pl-2 pr-1 rounded-md bg-white/[0.05] border border-sf-border-subtle sf-mono text-[11.5px]">
@@ -349,7 +371,7 @@ function BypassList({ list, onChange }: { list: string[]; onChange: (l: string[]
                 type="button"
                 onClick={() => onChange(list.filter((x) => x !== h))}
                 className="grid place-items-center w-4 h-4 rounded text-sf-text-muted hover:text-sf-text-primary hover:bg-white/10"
-                aria-label={`Remove ${h}`}
+                aria-label={tf('Remove {host}', { host: h })}
               >
                 <Icon name="x" size={11} strokeWidth={2.2} />
               </button>
@@ -359,7 +381,7 @@ function BypassList({ list, onChange }: { list: string[]; onChange: (l: string[]
         <form onSubmit={add} className="flex gap-2">
           <input
             className="sf-input !min-h-[36px] !py-1.5 !text-[13px]"
-            placeholder="example.com, *.example.com or 10.0.0.0/8"
+            placeholder={t('example.com, *.example.com or 10.0.0.0/8')}
             value={value}
             onChange={(e) => {
               setValue(e.target.value);
@@ -368,7 +390,7 @@ function BypassList({ list, onChange }: { list: string[]; onChange: (l: string[]
             aria-invalid={error}
             style={error ? { borderColor: 'rgba(239,68,68,0.6)' } : undefined}
           />
-          <button type="submit" className="sf-btn sf-btn-ghost sf-btn-sm !px-3" aria-label="Add">
+          <button type="submit" className="sf-btn sf-btn-ghost sf-btn-sm !px-3" aria-label={t('Add')}>
             <Icon name="plus" size={14} />
           </button>
         </form>

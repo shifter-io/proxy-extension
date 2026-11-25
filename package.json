@@ -14,6 +14,8 @@
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "compile": "tsc --noEmit",
+    "i18n:check": "node scripts/i18n/check.mjs",
+    "i18n:keys": "node scripts/i18n/keys.mjs",
     "icons": "node scripts/build-icons.mjs",
     "postinstall": "wxt prepare",
     "preview:ui": "WXT_USE_MOCK=true wxt build && node scripts/preview.mjs",
@@ -25,6 +27,7 @@
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
+    "@babel/parser": "^7.29.9",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@wxt-dev/module-react": "^1.2.2",

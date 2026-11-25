@@ -17,6 +17,7 @@ import type {
   User,
 } from '../../types';
 import { numberIspIps } from '../../format';
+import { t, tf } from '../../i18n';
 import { geoCatalog } from '../../geo/catalog';
 import { ApiError, type ShifterApi } from '../types';
 import type {
@@ -147,16 +148,16 @@ export class HttpShifterApi implements ShifterApi {
         country: p.country.toLowerCase(),
         city: p.city ?? undefined,
         asn: p.asn ?? undefined,
-        isp: (p.asn && names.get(p.asn)) || (p.asn ? `AS${p.asn}` : 'ISP proxy'),
+        isp: (p.asn && names.get(p.asn)) || (p.asn ? `AS${p.asn}` : t('ISP proxy')),
       })),
     );
   }
 
   async credentials(membershipId: string): Promise<ProxyCredentials> {
     const plan = (await this.proxyConfig(true)).plans.find((p) => p.hash === membershipId);
-    if (!plan) throw new ApiError('This plan is not active on the gateway yet.', 'validation');
+    if (!plan) throw new ApiError(t('This plan is not active on the gateway yet.'), 'validation');
     if (plan.protocol && plan.protocol.toLowerCase() !== 'http') {
-      throw new ApiError(`This plan uses ${plan.protocol.toUpperCase()}, which the browser can't authenticate.`, 'validation');
+      throw new ApiError(tf("This plan uses {protocol}, which the browser can't authenticate.", { protocol: plan.protocol.toUpperCase() }), 'validation');
     }
     return {
       type: plan.type,
@@ -185,7 +186,7 @@ export class HttpShifterApi implements ShifterApi {
   }
 
   private async user<T>(path: string, key = this.apiKey): Promise<T> {
-    if (!key) throw new ApiError('Not signed in', 'unauthorized');
+    if (!key) throw new ApiError(t('Not signed in'), 'unauthorized');
     // Retain Bearer for older deployments; workspace endpoints document X-Api-Key.
     const body = await this.request<Envelope<T>>(path, { Authorization: `Bearer ${key}`, 'X-Api-Key': key });
     if (body.error) throw new ApiError(body.error, body.code === 401 ? 'unauthorized' : 'server');
@@ -194,7 +195,7 @@ export class HttpShifterApi implements ShifterApi {
 
   private async geo<T>(kind: string, params: Record<string, string>): Promise<T> {
     const key = this.apiKey;
-    if (!key) throw new ApiError('Not signed in', 'unauthorized');
+    if (!key) throw new ApiError(t('Not signed in'), 'unauthorized');
     const qs = new URLSearchParams(params).toString();
     const path = `/api/v1/residential/geo/${kind}${qs ? `?${qs}` : ''}`;
     const cacheKey = `local:geo:${kind}:${qs}` as const;
@@ -219,13 +220,13 @@ export class HttpShifterApi implements ShifterApi {
     } catch {
       throw new ApiError(await unreachableReason(this.baseUrl), 'network');
     }
-    if (res.status === 401) throw new ApiError('Invalid API key', 'unauthorized');
-    if (res.status === 429) throw new ApiError('Too many requests. Wait a minute and try again.', 'rate_limited');
-    if (!res.ok) throw new ApiError(`Shifter returned ${res.status}. Try again later.`, 'server');
+    if (res.status === 401) throw new ApiError(t('Invalid API key'), 'unauthorized');
+    if (res.status === 429) throw new ApiError(t('Too many requests. Wait a minute and try again.'), 'rate_limited');
+    if (!res.ok) throw new ApiError(tf('Shifter returned {status}. Try again later.', { status: res.status }), 'server');
     try {
       return (await res.json()) as T;
     } catch {
-      throw new ApiError('Unexpected response from Shifter.', 'server');
+      throw new ApiError(t('Unexpected response from Shifter.'), 'server');
     }
   }
 }
@@ -237,11 +238,11 @@ export class HttpShifterApi implements ShifterApi {
  */
 async function unreachableReason(baseUrl: string): Promise<string> {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    return "You're offline. Check your connection and try again.";
+    return t("You're offline. Check your connection and try again.");
   }
   const granted = await browser.permissions?.contains({ origins: [`${baseUrl}/*`] }).catch(() => false);
-  if (!granted) return 'The extension has no access to shifter.io. Reload it in your browser’s extensions page.';
-  return "Couldn't reach Shifter. Check your connection and try again.";
+  if (!granted) return t('The extension has no access to shifter.io. Reload it in your browser’s extensions page.');
+  return t("Couldn't reach Shifter. Check your connection and try again.");
 }
 
 // ── Mapping ─────────────────────────────────────────────────────────────

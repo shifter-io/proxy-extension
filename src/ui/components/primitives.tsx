@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import glyphUrl from '@/assets/shifter-glyph.svg';
 import wordmarkUrl from '@/assets/shifter-wordmark.svg';
+import { t } from '@/lib/i18n';
 import type { MembershipStatus } from '@/lib/types';
 import { Icon, type IconName } from './Icon';
 
@@ -34,7 +35,7 @@ export function Spinner({ size = 16, tone = 'accent' }: { size?: number; tone?: 
       className={`inline-block rounded-full border-2 animate-sf-spin shrink-0 ${colors}`}
       style={{ width: size, height: size }}
       role="status"
-      aria-label="Loading"
+      aria-label={t('Loading')}
     />
   );
 }
@@ -85,7 +86,7 @@ export function TopBar({
   return (
     <header className="flex items-center gap-2 h-14 px-3 border-b border-sf-border-subtle bg-sf-bg-deepest/70 backdrop-blur">
       {onBack && (
-        <button type="button" className="sf-icon-btn" onClick={onBack} aria-label="Back">
+        <button type="button" className="sf-icon-btn" onClick={onBack} aria-label={t('Back')}>
           <Icon name="arrowLeft" size={16} />
         </button>
       )}
@@ -113,17 +114,20 @@ export function IconTile({ name, tone = 'accent', size = 36 }: { name: IconName;
   );
 }
 
-const STATUS_PILL: Record<MembershipStatus, { cls: string; label: string }> = {
-  active: { cls: 'sf-pill-success', label: 'Active' },
-  expiring: { cls: 'sf-pill-warning', label: 'Expiring soon' },
-  expired: { cls: 'sf-pill-danger', label: 'Expired' },
-  suspended: { cls: 'sf-pill-warning', label: 'Not active' },
+const STATUS_PILL: Record<MembershipStatus, { cls: string; label: () => string }> = {
+  active: { cls: 'sf-pill-success', label: () => t('Active') },
+  expiring: { cls: 'sf-pill-warning', label: () => t('Expiring soon') },
+  expired: { cls: 'sf-pill-danger', label: () => t('Expired') },
+  suspended: { cls: 'sf-pill-warning', label: () => t('Not active') },
 };
 
-/** `label` overrides the default text, e.g. the panel's "Pending Payment". */
+/**
+ * `label` overrides the default text, e.g. the panel's "Pending Payment"
+ * (translated when it is one of the panel labels in scripts/i18n/extra_keys.txt).
+ */
 export function StatusPill({ status, label }: { status: MembershipStatus; label?: string }) {
   const pill = STATUS_PILL[status];
-  return <span className={`sf-pill sf-pill--xs ${pill.cls}`}>{label || pill.label}</span>;
+  return <span className={`sf-pill sf-pill--xs ${pill.cls}`}>{label ? t(label) : pill.label()}</span>;
 }
 
 export function ProgressBar({ ratio }: { ratio: number }) {
@@ -175,7 +179,7 @@ export function SearchInput({
           type="button"
           className="absolute right-2 top-1/2 -translate-y-1/2 sf-icon-btn !w-6 !h-6"
           onClick={() => onChange('')}
-          aria-label="Clear search"
+          aria-label={t('Clear search')}
         >
           <Icon name="x" size={13} />
         </button>

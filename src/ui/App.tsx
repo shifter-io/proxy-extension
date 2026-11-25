@@ -1,5 +1,8 @@
+import { useEffect, useState } from 'react';
+import { activeLanguage, applyLanguage, languageItem, type Language } from '@/lib/i18n';
 import { Glyph, Spinner } from './components/primitives';
 import { HomeScreen } from './screens/HomeScreen';
+import { LanguageScreen } from './screens/LanguageScreen';
 import { LocationScreen } from './screens/LocationScreen';
 import { LoginScreen } from './screens/LoginScreen';
 import { MembershipsScreen } from './screens/MembershipsScreen';
@@ -14,8 +17,22 @@ export function App() {
   );
 }
 
+/**
+ * The active language. main.tsx loads it before the first render; a change
+ * in Settings (or another popup) applies it and re-renders the screen.
+ */
+function useLanguage(): Language {
+  const [code, setCode] = useState(activeLanguage);
+  useEffect(() => {
+    document.documentElement.lang = code;
+  }, [code]);
+  useEffect(() => languageItem.watch((choice) => setCode(applyLanguage(choice))), []);
+  return code;
+}
+
 function Router() {
   const { route, direction } = useApp();
+  const language = useLanguage();
   // Keyed wrapper replays the enter animation on every navigation.
   return (
     <div
@@ -23,7 +40,8 @@ function Router() {
       className="absolute inset-0"
       style={{ animation: `${direction === 'back' ? 'sf-fade-in 0.2s' : 'sf-fade-in 0.25s'} ease both` }}
     >
-      <Screen route={route} />
+      {/* Keyed by language: every string re-renders in the new one. */}
+      <Screen key={language} route={route} />
     </div>
   );
 }
@@ -42,6 +60,8 @@ function Screen({ route }: { route: Route }) {
       return <LocationScreen />;
     case 'settings':
       return <SettingsScreen />;
+    case 'language':
+      return <LanguageScreen />;
   }
 }
 

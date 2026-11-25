@@ -1,0 +1,10 @@
+{
+  "extName": {
+    "message": "Shifter — Proxy & VPN",
+    "description": "Extension name in the store and the browser. Keep \"Shifter\" and \"Proxy & VPN\" as is."
+  },
+  "extDescription": {
+    "message": "使用您现有的 Shifter 会员资格，通过 Shifter 住宅和 ISP 代理浏览网页。",
+    "description": "Store listing summary, at most 132 characters."
+  }
+}

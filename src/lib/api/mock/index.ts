@@ -12,6 +12,7 @@ import type {
 } from '../../types';
 import { ApiError, type ShifterApi } from '../types';
 import { geoCatalog } from '../../geo/catalog';
+import { t } from '../../i18n';
 import { ENTRY_POINTS, ISP_IPS, MEMBERSHIPS } from './fixtures';
 
 const delay = (ms = 350) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -41,7 +42,7 @@ export class MockShifterApi implements ShifterApi {
     await delay(650);
     const key = apiKey.trim();
     if (!/^[A-Za-z0-9]{32,}$/.test(key) || key.toLowerCase().startsWith('invalid')) {
-      throw new ApiError('Invalid API key', 'unauthorized');
+      throw new ApiError(t('Invalid API key'), 'unauthorized');
     }
     this.scenario = scenarioOf(key);
     return { user: this.user(), apiKey: key, createdAt: new Date().toISOString() };

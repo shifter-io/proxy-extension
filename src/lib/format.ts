@@ -1,3 +1,4 @@
+import { activeLanguage, t, tf } from './i18n';
 import type { IspIp, Membership, ResidentialMembership, Target } from './types';
 
 /** Decimal units, same as the panel and the API (1 GB = 1,000,000,000 bytes). */
@@ -9,31 +10,31 @@ export function formatBytes(bytes: number, digits = 1): string {
 }
 
 export function formatMoney(amount: number, currency = 'USD'): string {
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount);
+  return new Intl.NumberFormat(activeLanguage(), { style: 'currency', currency }).format(amount);
 }
 
+/** At most `digits` decimals, in the active language ("32.4", "32,4"). */
 function trim(n: number, digits: number): string {
-  return Number(n.toFixed(digits)).toString();
+  return new Intl.NumberFormat(activeLanguage(), { maximumFractionDigits: digits, useGrouping: false }).format(Number(n.toFixed(digits)));
 }
 
 export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date(iso).toLocaleDateString(activeLanguage(), { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 /** "in 23 days", "tomorrow", "6 days ago" */
 export function relativeDays(iso: string): string {
   const diff = Math.round((new Date(iso).getTime() - Date.now()) / 86_400_000);
-  if (diff === 0) return 'today';
-  if (diff === 1) return 'tomorrow';
-  if (diff === -1) return 'yesterday';
-  return diff > 0 ? `in ${diff} days` : `${-diff} days ago`;
+  if (diff === 0) return t('today');
+  if (diff === 1) return t('tomorrow');
+  if (diff === -1) return t('yesterday');
+  return diff > 0 ? tf('in {n} days', { n: diff }) : tf('{n} days ago', { n: -diff });
 }
 
 export function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) return `${Math.round(seconds / 60)} min`;
-  const h = seconds / 3600;
-  return `${trim(h, 1)} h`;
+  if (seconds < 60) return tf('{n}s', { n: seconds });
+  if (seconds < 3600) return tf('{n} min', { n: Math.round(seconds / 60) });
+  return tf('{n} h', { n: trim(seconds / 3600, 1) });
 }
 
 /** Residential traffic left; null when the allowance or balance is unavailable. */
@@ -67,12 +68,14 @@ export function numberIspIps(list: Omit<IspIp, 'seq' | 'seqOf'>[]): IspIp[] {
   });
 }
 
-const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+let regionNames: { lang: string; names: Intl.DisplayNames } | null = null;
 
-/** English country name for an iso2 code ("us" -> "United States"). */
+/** Country name for an iso2 code in the active language ("us" -> "United States", "Vereinigte Staaten"). */
 export function countryName(code: string): string {
+  const lang = activeLanguage();
   try {
-    return regionNames.of(code.toUpperCase()) ?? code.toUpperCase();
+    if (regionNames?.lang !== lang) regionNames = { lang, names: new Intl.DisplayNames([lang], { type: 'region' }) };
+    return regionNames.names.of(code.toUpperCase()) ?? code.toUpperCase();
   } catch {
     return code.toUpperCase();
   }
@@ -82,10 +85,10 @@ export function isUsable(m: Membership): boolean {
   return m.status === 'active' || m.status === 'expiring';
 }
 
-export const PRODUCT_LABEL: Record<Membership['type'], string> = {
-  residential: 'Residential',
-  isp: 'ISP',
-};
+/** Product names, as the app shows them in each language. */
+export function productLabel(type: Membership['type']): string {
+  return type === 'residential' ? t('Residential') : t('ISP');
+}
 
 /** Shown above the full A–Z list in the location picker. */
 export const POPULAR_COUNTRIES = ['us', 'gb', 'de', 'fr', 'ca'];
@@ -98,20 +101,21 @@ export const POOL_LABEL = {
 
 /** Primary + secondary label for a target, most specific first. */
 export function describeTarget(target: Target | undefined): { title: string; subtitle: string } {
-  if (!target) return { title: 'Choose location', subtitle: 'No location selected' };
+  if (!target) return { title: t('Choose location'), subtitle: t('No location selected') };
   if (target.kind === 'isp') {
     return {
       title: ispIpLabel(target.ip),
       subtitle: ispIpPlace(target.ip),
     };
   }
-  if (!target.country) return { title: 'Random location', subtitle: 'Worldwide · best available' };
-  const title = target.city?.name ?? target.region?.name ?? target.country.name;
-  const trail = [target.city && target.region?.name, (target.city || target.region) && target.country.name]
+  if (!target.country) return { title: t('Random location'), subtitle: t('Worldwide · best available') };
+  const country = countryName(target.country.code);
+  const title = target.city?.name ?? target.region?.name ?? country;
+  const trail = [target.city && target.region?.name, (target.city || target.region) && country]
     .filter(Boolean)
     .join(', ');
   const asn = target.asn ? `AS${target.asn.asn}` : '';
-  return { title, subtitle: [trail || 'Any city', asn].filter(Boolean).join(' · ') };
+  return { title, subtitle: [trail || t('Any city'), asn].filter(Boolean).join(' · ') };
 }
 
 export function targetCountryCode(target: Target | undefined): string | undefined {

@@ -1,0 +1,21 @@
+# Catalog keys that are not a literal t('...') call: text shown through
+# t(variable). Keep this list in sync when these texts change.
+
+# The panel's membership status labels (StatusPill shows them for plans that
+# are not active). Labels missing here stay in English.
+Pending Payment
+Canceled
+Suspended
+Inactive
+Unpaid
+Paused
+
+# Gateway entry point regions from proxy-config (Settings > Entry point).
+Automatic
+Europe
+North America
+South America
+Asia Pacific
+Middle East
+Africa
+Oceania

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, ApiError } from '@/lib/api';
+import { t } from '@/lib/i18n';
 import { Icon } from '../components/Icon';
 import { Screen, Spinner, Wordmark } from '../components/primitives';
 import { openExternal, SHIFTER_URLS } from '../links';
@@ -33,11 +34,11 @@ export function LoginScreen() {
   async function verify(raw: string) {
     const value = raw.trim();
     if (!value) {
-      setError('Paste your API key to continue.');
+      setError(t('Paste your API key to continue.'));
       return inputRef.current?.focus();
     }
     if (!KEY_RE.test(value)) {
-      setError("That doesn't look like a Shifter API key. Copy it again from your profile.");
+      setError(t("That doesn't look like a Shifter API key. Copy it again from your profile."));
       return inputRef.current?.focus();
     }
     setError(null);
@@ -50,10 +51,10 @@ export function LoginScreen() {
       setPhase('idle');
       setError(
         err instanceof ApiError && err.code === 'unauthorized'
-          ? 'Invalid API key. It may have been regenerated. Copy the current one from your profile.'
+          ? t('Invalid API key. It may have been regenerated. Copy the current one from your profile.')
           : err instanceof ApiError && (err.code === 'rate_limited' || err.code === 'network')
             ? err.message
-            : "Couldn't reach Shifter. Check your connection and try again.",
+            : t("Couldn't reach Shifter. Check your connection and try again."),
       );
       inputRef.current?.select();
     }
@@ -85,12 +86,12 @@ export function LoginScreen() {
         </div>
 
         <div className="shrink-0 animate-sf-slide-up">
-          <span className="sf-eyebrow">Proxy &amp; VPN</span>
+          <span className="sf-eyebrow">{t('Proxy & VPN')}</span>
           <h1 className="mt-4 text-[22px] leading-tight font-semibold" style={{ letterSpacing: '-0.025em' }}>
-            Connect your Shifter account
+            {t('Connect your Shifter account')}
           </h1>
           <p className="mt-2.5 text-[13px] leading-relaxed text-sf-text-tertiary">
-            Paste your API key to load your Residential and ISP plans.
+            {t('Paste your API key to load your Residential and ISP plans.')}
           </p>
         </div>
 
@@ -100,9 +101,9 @@ export function LoginScreen() {
               ref={inputRef}
               type="text"
               name="shifter-api-key"
-              aria-label="API key"
+              aria-label={t('API key')}
               className={`sf-input sf-input--borderless !pr-[76px] ${reveal ? '' : 'sf-input--masked'}`}
-              placeholder="Enter your API key"
+              placeholder={t('Enter your API key')}
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
@@ -132,10 +133,10 @@ export function LoginScreen() {
               style={error ? { borderColor: 'rgba(239,68,68,0.55)' } : undefined}
             />
             <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-              <button type="button" className="sf-icon-btn !w-8 !h-8" onClick={() => setReveal((r) => !r)} aria-label={reveal ? 'Hide key' : 'Show key'} disabled={busy}>
+              <button type="button" className="sf-icon-btn !w-8 !h-8" onClick={() => setReveal((r) => !r)} aria-label={reveal ? t('Hide key') : t('Show key')} disabled={busy}>
                 <Icon name={reveal ? 'eyeOff' : 'eye'} size={15} />
               </button>
-              <button type="button" className="sf-icon-btn !w-8 !h-8" onClick={pasteFromClipboard} aria-label="Paste from clipboard" disabled={busy}>
+              <button type="button" className="sf-icon-btn !w-8 !h-8" onClick={pasteFromClipboard} aria-label={t('Paste from clipboard')} disabled={busy}>
                 <Icon name="clipboard" size={15} />
               </button>
             </div>
@@ -144,7 +145,7 @@ export function LoginScreen() {
           <div className="mt-2 flex items-start gap-3">
             <p className="flex-1 text-[12.5px] leading-relaxed text-[#fca5a5]">{error}</p>
             <button type="button" className="sf-link-btn text-[12.5px] shrink-0 leading-relaxed" onClick={() => openExternal(SHIFTER_URLS.apiKey)}>
-              Where do I find it?
+              {t('Where do I find it?')}
             </button>
           </div>
 
@@ -156,20 +157,20 @@ export function LoginScreen() {
           >
             {phase === 'idle' && (
               <>
-                <span>Continue</span>
+                <span>{t('Continue')}</span>
                 <Icon name="arrowRight" size={14} strokeWidth={2.2} />
               </>
             )}
             {phase === 'verifying' && (
               <>
-                <span>Verifying key</span>
+                <span>{t('Verifying key')}</span>
                 <Spinner size={14} tone="white" />
               </>
             )}
             {phase === 'verified' && (
               <>
                 <Icon name="check" size={15} strokeWidth={3} className="animate-sf-pop" />
-                <span>Verified</span>
+                <span>{t('Verified')}</span>
               </>
             )}
           </button>
@@ -178,22 +179,22 @@ export function LoginScreen() {
         <div className="shrink-0">
           <div className="flex items-center gap-3 mb-6">
             <span className="flex-1 h-px bg-sf-border-subtle" />
-            <span className="text-[10.5px] tracking-[0.18em] uppercase text-sf-text-muted">New to Shifter?</span>
+            <span className="text-[10.5px] tracking-[0.18em] uppercase text-sf-text-muted">{t('New to Shifter?')}</span>
             <span className="flex-1 h-px bg-sf-border-subtle" />
           </div>
 
           <button type="button" className="sf-oauth-btn" onClick={() => openExternal(SHIFTER_URLS.register)}>
-            <span>Create a free account</span>
+            <span>{t('Create a free account')}</span>
             <Icon name="external" size={14} className="text-sf-text-tertiary" />
           </button>
           <p className="mt-3 text-center text-[12px] leading-relaxed text-sf-text-muted">
-            Sign up, then copy your key from Profile → API Key.
+            {t('Sign up, then copy your key from Profile → API Key.')}
           </p>
         </div>
 
         <p className="shrink-0 flex items-center justify-center gap-1.5 text-[11.5px] text-sf-text-muted">
           <Icon name="lock" size={12} />
-          Your key is stored only in this browser.
+          {t('Your key is stored only in this browser.')}
         </p>
       </div>
     </Screen>

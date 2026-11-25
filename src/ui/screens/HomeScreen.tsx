@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { describeTarget, formatBytes, formatDuration, isUsable, targetCountryCode, trafficLeft } from '@/lib/format';
+import { countryName, describeTarget, formatBytes, formatDuration, isUsable, targetCountryCode, trafficLeft } from '@/lib/format';
+import { t, tf } from '@/lib/i18n';
 import { POOL_LIMIT_NOTE, POOL_TARGETING } from '@/lib/pools';
 import { sendProxyMessage } from '@/lib/proxy/messages';
 import type { Membership, ProxySettings, Target } from '@/lib/types';
@@ -43,11 +44,11 @@ export function HomeScreen() {
               type="button"
               className={`flex items-center gap-2.5 min-w-0 flex-1 text-left rounded-lg px-1.5 py-1 -mx-0.5 ${canSwitch ? 'hover:bg-white/[0.04] cursor-pointer' : 'cursor-default'}`}
               onClick={canSwitch ? () => push({ name: 'memberships' }) : undefined}
-              aria-label={canSwitch ? 'Switch membership' : undefined}
+              aria-label={canSwitch ? t('Switch membership') : undefined}
             >
               <Glyph size={22} />
               <span className="min-w-0 flex-1">
-                <span className="block text-[10.5px] tracking-[0.14em] uppercase text-sf-text-muted leading-none mb-1">Membership</span>
+                <span className="block text-[10.5px] tracking-[0.14em] uppercase text-sf-text-muted leading-none mb-1">{t('Membership')}</span>
                 <span className="flex items-baseline gap-1.5 text-[13.5px] font-semibold leading-none">
                   <span className="truncate" title={planTitle}>
                     {m.planName}{teamName && <span className="font-normal text-sf-text-tertiary"> ({teamName})</span>}
@@ -59,7 +60,7 @@ export function HomeScreen() {
             </button>
           }
           right={
-            <button type="button" className="sf-icon-btn" aria-label="Settings" onClick={() => push({ name: 'settings' })}>
+            <button type="button" className="sf-icon-btn" aria-label={t('Settings')} onClick={() => push({ name: 'settings' })}>
               <Icon name="settings" size={16} />
             </button>
           }
@@ -87,21 +88,21 @@ export function HomeScreen() {
 
       {connection.status === 'connected' && connectedHere && connection.loginStale && (
         <p className="-mt-4 mb-4 px-1 text-center text-[12px] leading-relaxed text-[#f0b461]">
-          Restart Firefox to fully apply this change: sites you already opened may keep the previous location.
+          {t('Restart Firefox to fully apply this change: sites you already opened may keep the previous location.')}
         </p>
       )}
       <LocationCard m={m} target={target} onOpen={() => push({ name: 'location' })} />
       {m.type === 'residential' && !POOL_TARGETING[m.pool].country && (
         <p className="mt-2.5 px-1 flex gap-2 text-[12px] leading-relaxed text-sf-text-muted">
           <Icon name="lock" size={13} className="shrink-0 mt-0.5" />
-          {POOL_LIMIT_NOTE[m.pool]}
+          {POOL_LIMIT_NOTE[m.pool]?.()}
         </p>
       )}
 
       <StatsCard m={m} settings={settings} onSession={() => push({ name: 'settings' })} />
       {m.workspace && !m.workspace.personal && (
         <p className="mt-3 text-center text-[12px] text-sf-text-tertiary break-words">
-          Traffic uses {m.workspace.name}’s plan and wallet.
+          {tf('Traffic uses {team}’s plan and wallet.', { team: m.workspace.name })}
         </p>
       )}
       <RenewalLine m={m} onRenew={() => openExternal(SHIFTER_URLS.renew(m))} className="mt-4" />
@@ -139,7 +140,7 @@ function ConnectHero({
       <button
         type="button"
         onClick={onToggle}
-        aria-label={connected || connecting ? 'Disconnect' : 'Connect'}
+        aria-label={connected || connecting ? t('Disconnect') : t('Connect')}
         className="relative w-[124px] h-[124px] rounded-full grid place-items-center cursor-pointer transition-transform active:scale-[0.97]"
         style={{
           background: connected
@@ -166,7 +167,7 @@ function ConnectHero({
 
       <div className="mt-6 text-center">
         <div className={`text-[17px] font-semibold ${connected ? 'text-[#62d399]' : ''}`} style={{ letterSpacing: '-0.02em' }}>
-          {connected ? 'Connected' : connecting ? 'Connecting…' : status === 'error' ? 'Connection failed' : 'Not connected'}
+          {connected ? t('Connected') : connecting ? t('Connecting…') : status === 'error' ? t('Connection failed') : t('Not connected')}
         </div>
         <div className="mt-1.5 h-[18px] text-[12.5px] text-sf-text-tertiary flex items-center justify-center gap-1.5">
           {connected && exitIp && (
@@ -179,16 +180,16 @@ function ConnectHero({
                   type="button"
                   onClick={onNewIp}
                   className="ml-0.5 grid place-items-center w-6 h-6 rounded-md text-sf-text-muted hover:text-sf-accent-light hover:bg-white/5"
-                  aria-label="Get a new IP"
-                  data-tip="New IP"
+                  aria-label={t('Get a new IP')}
+                  data-tip={t('New IP')}
                 >
                   <Icon name="refresh" size={13} />
                 </button>
               )}
             </>
           )}
-          {connecting && 'Securing your route through Shifter'}
-          {status === 'disconnected' && (needsTarget ? 'Pick an IP to get started' : 'Tap to route this browser through Shifter')}
+          {connecting && t('Securing your route through Shifter')}
+          {status === 'disconnected' && (needsTarget ? t('Pick an IP to get started') : t('Tap to route this browser through Shifter'))}
           {status === 'error' && <span className="text-[#fca5a5]">{error}</span>}
         </div>
       </div>
@@ -214,11 +215,11 @@ function Uptime({ since }: { since: string }) {
 function LocationCard({ m, target, onOpen }: { m: Membership; target?: Target; onOpen: () => void }) {
   const locked = m.type === 'residential' && !POOL_TARGETING[m.pool].country;
   const { title, subtitle } = locked
-    ? { title: 'Random location', subtitle: 'Worldwide · Non-Geo plan' }
+    ? { title: t('Random location'), subtitle: t('Worldwide · Non-Geo plan') }
     : m.type === 'isp' && !target
-      ? { title: 'Choose an IP', subtitle: `${m.ipCount} static ISP IPs on this plan` }
+      ? { title: t('Choose an IP'), subtitle: tf('{n} static ISP IPs on this plan', { n: m.ipCount }) }
       : m.type === 'residential' && !POOL_TARGETING[m.pool].subCountry && target?.kind === 'residential' && target.country
-        ? { title: target.country.name, subtitle: 'Country-level · Country Geo plan' }
+        ? { title: countryName(target.country.code), subtitle: t('Country-level · Country Geo plan') }
         : describeTarget(target);
 
   return (
@@ -238,7 +239,7 @@ function LocationCard({ m, target, onOpen }: { m: Membership; target?: Target; o
         )}
       </span>
       <span className="flex-1 min-w-0">
-        <span className="block sf-label !text-[10px] mb-1">{m.type === 'isp' ? 'Static IP' : 'Location'}</span>
+        <span className="block sf-label !text-[10px] mb-1">{m.type === 'isp' ? t('Static IP') : t('Location')}</span>
         <span className="block truncate text-[14px] font-semibold">{title}</span>
         <span className="block truncate text-[12px] text-sf-text-tertiary mt-0.5">{subtitle}</span>
       </span>
@@ -246,7 +247,7 @@ function LocationCard({ m, target, onOpen }: { m: Membership; target?: Target; o
         <Icon name="lock" size={15} className="text-sf-text-muted" />
       ) : (
         <span className="flex items-center gap-1 text-[12px] font-medium text-sf-accent-light">
-          Change <Icon name="chevronRight" size={14} />
+          {t('Change')} <Icon name="chevronRight" size={14} />
         </span>
       )}
     </button>
@@ -263,20 +264,20 @@ function StatsCard({ m, settings, onSession }: { m: Membership; settings: ProxyS
     <section className="sf-card !p-0 mt-3 grid grid-cols-2 divide-x divide-sf-border-subtle overflow-hidden">
       <UsageStat m={m} />
       {m.type === 'isp' ? (
-        <Stat label="IP" value="Static" sub="Same IP every time" />
+        <Stat label="IP" value={t('Static')} sub={t('Same IP every time')} />
       ) : !m.stickySessions ? (
-        <Stat label="Session" value="Rotating" sub="New IP per request" />
+        <Stat label={t('Session')} value={t('Rotating')} sub={t('New IP per request')} />
       ) : (
         <button
           type="button"
           onClick={onSession}
           className="group text-left transition-colors hover:bg-white/[0.03]"
-          aria-label="Change IP session settings"
+          aria-label={t('Change IP session settings')}
         >
           <Stat
-            label="Session"
-            value={settings.sessionMode === 'sticky' ? formatDuration(settings.ttlSeconds) : 'Rotating'}
-            sub={settings.sessionMode === 'sticky' ? 'Sticky IP' : 'New IP per request'}
+            label={t('Session')}
+            value={settings.sessionMode === 'sticky' ? formatDuration(settings.ttlSeconds) : t('Rotating')}
+            sub={settings.sessionMode === 'sticky' ? t('Sticky IP') : t('New IP per request')}
             action
           />
         </button>
@@ -286,16 +287,16 @@ function StatsCard({ m, settings, onSession }: { m: Membership; settings: ProxyS
 }
 
 function UsageStat({ m }: { m: Membership }) {
-  if (m.type === 'isp') return <Stat label="Bandwidth" value="Unlimited" sub="No traffic cap" />;
+  if (m.type === 'isp') return <Stat label={t('Bandwidth')} value={t('Unlimited')} sub={t('No traffic cap')} />;
 
   const usage = trafficLeft(m);
   if (!usage) {
-    return <Stat label="Traffic left" value="—" sub="Not available yet" />;
+    return <Stat label={t('Traffic left')} value="—" sub={t('Not available yet')} />;
   }
   const tone = usage.ratio <= 0.1 ? 'danger' : usage.ratio <= 0.25 ? 'warning' : '';
   return (
     <Stat
-      label="Traffic left"
+      label={t('Traffic left')}
       value={
         <>
           {formatBytes(usage.left)}

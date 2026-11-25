@@ -42,6 +42,8 @@ export default [
     timeout: 120,
   },
   { name: 'compile', run: ['node', 'scripts/wxt-lock.mjs', 'npm', 'run', 'compile'], timeout: 300 },
+  // Every key in every catalog, and no user-facing text outside t() (scripts/i18n/check.mjs).
+  { name: 'i18n', run: ['npm', 'run', 'i18n:check'], timeout: 120 },
   {
     name: 'builds',
     run: [
