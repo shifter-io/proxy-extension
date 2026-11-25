@@ -3,7 +3,7 @@
 Runs the real extension (popup, background worker, proxy, login answering, WebRTC policy) in **Chrome for Testing** (same engine as Chrome, Edge and Brave) and **Firefox**, against a stand-in Shifter:
 
 - `fake-shifter.mjs`: the `/api/v1` endpoints on `127.0.0.1:18080`, and a login-protected HTTP proxy gateway on `:18081–18083` (like 443 / 80 / 8080; see [Running scripts side by side](#running-scripts-side-by-side) for other ports) that logs the username of every request. `fra/ams/lon.localhost` stand in for the regional entry points.
-- `suite.mjs`: the checks (sign-in, plan, traffic, connect, username format, WebRTC, strict, bypass list, New IP ×8 on an open site, cookies kept, latency, 15 s IP re-check, disconnect).
+- `suite.mjs`: the checks (sign-in, plan, traffic, language (a stored choice and Automatic, in the popup, `<html lang>` and the toolbar title), connect, username format, WebRTC, strict, bypass list, New IP ×8 on an open site, cookies kept, latency, 15 s IP re-check, disconnect).
 - `drivers.mjs`: how each browser is launched and the popup found.
 - `run.mjs`: builds `build-test/` (stand-in API) and `build-test-live/` (real API, one bad-key check), then runs everything.
 - `build.mjs`: `buildExtension({ browser, env, outDir })`, the one way the scripts build the extension (holding the build lock below); returns the build folder.

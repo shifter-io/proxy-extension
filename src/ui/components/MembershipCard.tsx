@@ -1,4 +1,5 @@
-import { POOL_LABEL, PRODUCT_LABEL, formatBytes, formatDate, isUsable, relativeDays, trafficLeft } from '@/lib/format';
+import { POOL_LABEL, formatBytes, formatDate, isUsable, productLabel, relativeDays, trafficLeft } from '@/lib/format';
+import { t, tf } from '@/lib/i18n';
 import type { Membership } from '@/lib/types';
 import { Icon } from './Icon';
 import { IconTile, ProgressBar, StatusPill } from './primitives';
@@ -7,7 +8,7 @@ import { IconTile, ProgressBar, StatusPill } from './primitives';
 export function MembershipMeta({ m }: { m: Membership }) {
   return (
     <span className={`sf-pill sf-pill--xs ${m.type === 'residential' ? 'sf-pill-info' : 'sf-pill-neutral'}`}>
-      {PRODUCT_LABEL[m.type]}
+      {productLabel(m.type)}
     </span>
   );
 }
@@ -42,7 +43,7 @@ export function RenewalLine({ m, onRenew, className = '' }: { m: Membership; onR
             onRenew();
           }}
         >
-          {m.status === 'expired' && (!m.workspace || m.workspace.personal || m.workspace.role === 'admin') ? 'Renew' : 'Open in panel'} <Icon name="external" size={12} />
+          {m.status === 'expired' && (!m.workspace || m.workspace.personal || m.workspace.role === 'admin') ? t('Renew') : t('Open in panel')} <Icon name="external" size={12} />
         </button>
       )}
     </div>
@@ -51,16 +52,18 @@ export function RenewalLine({ m, onRenew, className = '' }: { m: Membership; onR
 
 /** Doc rule: "Renews <renews_at>" when set, otherwise "Expires <expires_at>"; trials say when they end. */
 export function ExpiryLine({ m }: { m: Membership }) {
-  if (m.status === 'expired') return <span className="text-[#fca5a5]">Expired {formatDate(m.expiresAt)}</span>;
-  const [verb, date] = m.trialEndsAt
-    ? ['Trial ends', m.trialEndsAt]
+  if (m.status === 'expired') return <span className="text-[#fca5a5]">{tf('Expired {date}', { date: formatDate(m.expiresAt) })}</span>;
+  const date = m.trialEndsAt ?? m.renewsAt ?? m.expiresAt;
+  const when = relativeDays(date);
+  const line = m.trialEndsAt
+    ? tf('Trial ends {when}', { when })
     : m.renewsAt
-      ? ['Renews', m.renewsAt]
-      : ['Expires', m.expiresAt];
+      ? tf('Renews {when}', { when })
+      : tf('Expires {when}', { when });
   const tone = m.status === 'expiring' ? 'text-[#f0b461]' : 'text-sf-text-tertiary';
   return (
     <span className={tone}>
-      {verb} {relativeDays(date)} <span className="text-sf-text-muted">· {formatDate(date)}</span>
+      {line} <span className="text-sf-text-muted">· {formatDate(date)}</span>
     </span>
   );
 }
@@ -70,15 +73,15 @@ export function UsageLine({ m }: { m: Membership }) {
   if (!usage) {
     return (
       <div className="flex items-center justify-between text-[12px]">
-        <span className="text-sf-text-tertiary">{m.type === 'isp' ? 'Bandwidth' : 'Traffic left'}</span>
-        <span className="sf-mono text-sf-text-secondary">{m.type === 'isp' ? 'Unlimited' : '—'}</span>
+        <span className="text-sf-text-tertiary">{m.type === 'isp' ? t('Bandwidth') : t('Traffic left')}</span>
+        <span className="sf-mono text-sf-text-secondary">{m.type === 'isp' ? t('Unlimited') : '—'}</span>
       </div>
     );
   }
   return (
     <div>
       <div className="flex items-baseline justify-between text-[12px] mb-1.5">
-        <span className="text-sf-text-tertiary">Traffic left</span>
+        <span className="text-sf-text-tertiary">{t('Traffic left')}</span>
         <span className="sf-mono">
           <span className="text-sf-text-primary font-medium">{formatBytes(usage.left)}</span>
           <span className="text-sf-text-muted"> / {formatBytes(usage.total, 0)}</span>

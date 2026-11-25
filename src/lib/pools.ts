@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import type { ResidentialPool, ResidentialTarget } from './types';
 
 /**
@@ -20,11 +21,11 @@ export const POOL_TARGETING: Record<ResidentialPool, PoolTargeting> = {
   'non-geo': { country: false, subCountry: false },
 };
 
-/** One-line explanation shown wherever a limit applies. */
-export const POOL_LIMIT_NOTE: Record<ResidentialPool, string | null> = {
+/** One-line explanation shown wherever a limit applies, in the active language. */
+export const POOL_LIMIT_NOTE: Record<ResidentialPool, (() => string) | null> = {
   full: null,
-  country: 'Your Country Geo plan targets by country. Full Geo adds state, city and ASN targeting.',
-  'non-geo': 'Non-Geo plans use random IPs worldwide. Upgrade to Country Geo or Full Geo to pick a location.',
+  country: () => t('Your Country Geo plan targets by country. Full Geo adds state, city and ASN targeting.'),
+  'non-geo': () => t('Non-Geo plans use random IPs worldwide. Upgrade to Country Geo or Full Geo to pick a location.'),
 };
 
 /**

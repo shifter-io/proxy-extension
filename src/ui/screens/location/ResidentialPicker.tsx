@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { api } from '@/lib/api';
-import { describeTarget, POOL_LABEL, POPULAR_COUNTRIES, sameTarget } from '@/lib/format';
+import { countryName, describeTarget, POOL_LABEL, POPULAR_COUNTRIES, sameTarget } from '@/lib/format';
+import { activeLanguage, t, tf } from '@/lib/i18n';
 import { clampTarget, POOL_LIMIT_NOTE, POOL_TARGETING } from '@/lib/pools';
 import type { GeoCountry, GeoRegion, GeoSearchResult, ResidentialMembership, ResidentialTarget } from '@/lib/types';
 import { Icon, type IconName } from '../../components/Icon';
@@ -59,7 +60,7 @@ export function ResidentialPicker({ m }: { m: ResidentialMembership }) {
   }
 
   const title =
-    view.level === 'countries' ? 'Choose location' : view.level === 'country' ? view.country.name : view.region.name;
+    view.level === 'countries' ? t('Choose location') : view.level === 'country' ? countryName(view.country.code) : view.region.name;
 
   return (
     <Screen
@@ -74,11 +75,11 @@ export function ResidentialPicker({ m }: { m: ResidentialMembership }) {
               placeholder={
                 view.level === 'countries'
                   ? countryOnly
-                    ? 'Search countries'
-                    : 'Search country, state, city or ISP'
+                    ? t('Search countries')
+                    : t('Search country, state, city or ISP')
                   : view.level === 'country'
-                    ? `Search in ${view.country.name}`
-                    : `Search cities in ${view.region.name}`
+                    ? tf('Search in {place}', { place: countryName(view.country.code) })
+                    : tf('Search cities in {place}', { place: view.region.name })
               }
             />
           </div>
@@ -99,7 +100,7 @@ export function ResidentialPicker({ m }: { m: ResidentialMembership }) {
       {POOL_LIMIT_NOTE[m.pool] && view.level === 'countries' && !query && (
         <p className="mx-1 mt-1 mb-3 px-3 py-2.5 rounded-[10px] bg-white/[0.03] border border-sf-border-subtle text-[12px] leading-relaxed text-sf-text-tertiary flex gap-2">
           <Icon name="lock" size={13} className="shrink-0 mt-0.5" />
-          {POOL_LIMIT_NOTE[m.pool]}
+          {POOL_LIMIT_NOTE[m.pool]?.()}
         </p>
       )}
       {view.level === 'countries' && (
@@ -164,7 +165,7 @@ function CountriesView({
   if (q) {
     const hits = (search.data ?? []).filter((h) => !countryOnly || h.kind === 'country');
     if (!search.loading && hits.length === 0) {
-      return <EmptyState icon="search" title="No matches" body={`Nothing found for “${q}”. Try a country, state, city or ASN number.`} />;
+      return <EmptyState icon="search" title={t('No matches')} body={tf('Nothing found for “{query}”. Try a country, state, city or ASN number.', { query: q })} />;
     }
     return (
       <div className="flex flex-col gap-0.5">
@@ -188,8 +189,8 @@ function CountriesView({
       <div>
         <Row
           leading={<Flag />}
-          title="Random location"
-          subtitle="Best available IP, anywhere"
+          title={t('Random location')}
+          subtitle={t('Best available IP, anywhere')}
           selected={!draft.country}
           onClick={() => onApply(WORLDWIDE)}
         />
@@ -197,7 +198,7 @@ function CountriesView({
 
       {recent.length > 0 && (
         <div>
-          <SectionLabel>Recent</SectionLabel>
+          <SectionLabel>{t('Recent')}</SectionLabel>
           {recent.slice(0, 3).map((t, i) => {
             const d = describeTarget(t);
             return (
@@ -208,17 +209,19 @@ function CountriesView({
       )}
 
       <div>
-        <SectionLabel>Popular</SectionLabel>
+        <SectionLabel>{t('Popular')}</SectionLabel>
         {popular.map((c) => (
           <CountryRow key={c.code} c={c} selected={selectedCode === c.code} drill={!countryOnly} onClick={() => onPickCountry(c)} />
         ))}
       </div>
 
       <div>
-        <SectionLabel right={<span className="sf-mono text-[11px] text-sf-text-muted">{all.length}</span>}>All countries</SectionLabel>
+        <SectionLabel right={<span className="sf-mono text-[11px] text-sf-text-muted">{all.length}</span>}>{t('All countries')}</SectionLabel>
         {countries.loading && <RowsSkeleton />}
-        {[...all]
-          .sort((a, b) => a.name.localeCompare(b.name))
+        {all
+          .map((c) => ({ c, name: countryName(c.code) }))
+          .sort((a, b) => a.name.localeCompare(b.name, activeLanguage()))
+          .map(({ c }) => c)
           .map((c) => (
             <CountryRow key={c.code} c={c} selected={selectedCode === c.code} drill={!countryOnly} onClick={() => onPickCountry(c)} />
           ))}
@@ -231,24 +234,25 @@ function hitToTarget(h: GeoSearchResult): ResidentialTarget {
   return { kind: 'residential', country: h.country, region: h.region, city: h.city, asn: h.asn };
 }
 
-const HIT_META: Record<GeoSearchResult['kind'], { label: string; icon: IconName }> = {
-  country: { label: 'Country', icon: 'globe' },
-  region: { label: 'State', icon: 'map' },
-  city: { label: 'City', icon: 'pin' },
-  asn: { label: 'ASN', icon: 'network' },
+const HIT_META: Record<GeoSearchResult['kind'], { label: () => string; icon: IconName }> = {
+  country: { label: () => t('Country'), icon: 'globe' },
+  region: { label: () => t('State'), icon: 'map' },
+  city: { label: () => t('City'), icon: 'pin' },
+  asn: { label: () => 'ASN', icon: 'network' },
 };
 
 function SearchHitRow({ hit, onClick }: { hit: GeoSearchResult; onClick: () => void }) {
+  const country = countryName(hit.country.code);
   const title =
-    hit.kind === 'asn' ? hit.asn!.name : hit.kind === 'city' ? hit.city!.name : hit.kind === 'region' ? hit.region!.name : hit.country.name;
+    hit.kind === 'asn' ? hit.asn!.name : hit.kind === 'city' ? hit.city!.name : hit.kind === 'region' ? hit.region!.name : country;
   const subtitle =
     hit.kind === 'asn'
-      ? [`AS${hit.asn!.asn}`, [hit.city?.name, hit.country.name].filter(Boolean).join(', ')].join(' · ')
+      ? [`AS${hit.asn!.asn}`, [hit.city?.name, country].filter(Boolean).join(', ')].join(' · ')
       : hit.kind === 'city'
-        ? [hit.region?.name, hit.country.name].filter(Boolean).join(', ')
+        ? [hit.region?.name, country].filter(Boolean).join(', ')
         : hit.kind === 'region'
-          ? hit.country.name
-          : 'Any city';
+          ? country
+          : t('Any city');
   return (
     <Row
       leading={<Flag code={hit.country.code} />}
@@ -258,7 +262,7 @@ function SearchHitRow({ hit, onClick }: { hit: GeoSearchResult; onClick: () => v
       trailing={
         <span className="sf-pill sf-pill--xs sf-pill-neutral">
           <Icon name={HIT_META[hit.kind].icon} size={11} />
-          {hit.kind === 'asn' && hit.city ? 'City + ASN' : HIT_META[hit.kind].label}
+          {hit.kind === 'asn' && hit.city ? t('City + ASN') : HIT_META[hit.kind].label()}
         </span>
       }
     />
@@ -306,8 +310,8 @@ function CountryView({
     <div className="flex flex-col gap-3 pt-1">
       <Row
         leading={<Flag code={country.code} />}
-        title={`Any location in ${country.name}`}
-        subtitle="Country-level targeting"
+        title={tf('Any location in {country}', { country: countryName(country.code) })}
+        subtitle={t('Country-level targeting')}
         selected={draft.country?.code === country.code && !draft.region && !draft.city}
         onClick={() => setDraft({ kind: 'residential', country, asn: draft.asn })}
       />
@@ -315,10 +319,10 @@ function CountryView({
       {!searching && (
         <div className="sf-segmented mx-1">
           <button className={tab === 'regions' ? 'active' : ''} onClick={() => onTab('regions')}>
-            States <Count n={regions.data?.length} />
+            {t('States')} <Count n={regions.data?.length} />
           </button>
           <button className={tab === 'cities' ? 'active' : ''} onClick={() => onTab('cities')}>
-            Cities <Count n={cities.data?.length} />
+            {t('Cities')} <Count n={cities.data?.length} />
           </button>
           <button className={tab === 'asn' ? 'active' : ''} onClick={() => onTab('asn')}>
             ASN <Count n={asns.data?.length} />
@@ -329,7 +333,7 @@ function CountryView({
       <div className="flex flex-col gap-0.5">
         {loading && <RowsSkeleton />}
 
-        {searching && !regions.loading && regionList.length > 0 && <SectionLabel>States</SectionLabel>}
+        {searching && !regions.loading && regionList.length > 0 && <SectionLabel>{t('States')}</SectionLabel>}
         {!regions.loading && (searching || tab === 'regions') &&
           (regionList.length ? (
             regionList.map((r) => (
@@ -347,10 +351,10 @@ function CountryView({
               />
             ))
           ) : (
-            !searching && <NoneHere what="states" />
+            !searching && <NoneHere text={t('No states match your search.')} />
           ))}
 
-        {searching && !cities.loading && cityList.length > 0 && <SectionLabel>Cities</SectionLabel>}
+        {searching && !cities.loading && cityList.length > 0 && <SectionLabel>{t('Cities')}</SectionLabel>}
         {!cities.loading && (searching || tab === 'cities') &&
           (cityList.length ? (
             cityList.map((c) => (
@@ -366,14 +370,14 @@ function CountryView({
               />
             ))
           ) : (
-            !searching && <NoneHere what="cities" />
+            !searching && <NoneHere text={t('No cities match your search.')} />
           ))}
 
         {!asns.loading && (searching ? asnList.length > 0 : tab === 'asn') && (
           <>
             {searching && <SectionLabel>ASN</SectionLabel>}
             <p className="px-2 pb-2 text-[12px] leading-relaxed text-sf-text-muted">
-              {cityPick ? `ISPs with IPs in ${cityPick.name}.` : 'Pin exits to one carrier. Combines with the state or city you picked.'}
+              {cityPick ? tf('ISPs with IPs in {city}.', { city: cityPick.name }) : t('Pin exits to one carrier. Combines with the state or city you picked.')}
             </p>
             {asnList.length ? (
               asnList.map((a) => {
@@ -390,12 +394,12 @@ function CountryView({
                 );
               })
             ) : (
-              <NoneHere what="ASNs" />
+              <NoneHere text={t('No ASNs match your search.')} />
             )}
           </>
         )}
         {searching && !loading && regionList.length === 0 && cityList.length === 0 && asnList.length === 0 && (
-          <EmptyState icon="search" title="No matches" body={`Nothing found for “${query.trim()}”. Try a state, city, ISP or ASN number.`} />
+          <EmptyState icon="search" title={t('No matches')} body={tf('Nothing found for “{query}”. Try a state, city, ISP or ASN number.', { query: query.trim() })} />
         )}
       </div>
     </div>
@@ -425,15 +429,15 @@ function RegionView({
     <div className="flex flex-col gap-3 pt-1">
       <Row
         leading={<LevelIcon name="map" />}
-        title={`Any city in ${region.name}`}
-        subtitle={`State-level · ${country.name}`}
+        title={tf('Any city in {place}', { place: region.name })}
+        subtitle={tf('State-level · {country}', { country: countryName(country.code) })}
         selected={draft.region?.slug === region.slug && !draft.city}
         onClick={() => setDraft({ kind: 'residential', country, region, asn: draft.asn })}
       />
       <div>
-        <SectionLabel>Cities</SectionLabel>
+        <SectionLabel>{t('Cities')}</SectionLabel>
         {cities.loading && <RowsSkeleton />}
-        {!cities.loading && list.length === 0 && <NoneHere what="cities" />}
+        {!cities.loading && list.length === 0 && <NoneHere text={t('No cities match your search.')} />}
         {list.map((c) => (
           <Row
             key={c.slug}
@@ -468,7 +472,7 @@ function SelectionBar({
       label: (
         <>
           <Flag code={draft.country.code} className="!w-4 !h-[11px]" />
-          {draft.country.name}
+          {countryName(draft.country.code)}
         </>
       ),
       clear: () => onChange(WORLDWIDE),
@@ -483,7 +487,7 @@ function SelectionBar({
       <div className="flex items-center gap-1.5 flex-wrap min-h-[26px]">
         {chips.length === 0 && (
           <span className="inline-flex items-center gap-1.5 text-[12.5px] text-sf-text-tertiary">
-            <Flag /> Random location worldwide
+            <Flag /> {t('Random location worldwide')}
           </span>
         )}
         {chips.map((c, i) => (
@@ -492,7 +496,7 @@ function SelectionBar({
             {c.key === 'asn' && <span className="text-sf-text-faint text-[12px]">+</span>}
             <span className="inline-flex items-center gap-1.5 h-[26px] pl-2 pr-1 rounded-md bg-white/[0.05] border border-sf-border-subtle text-[12px] font-medium">
               {c.label}
-              <button type="button" onClick={c.clear} className="grid place-items-center w-4 h-4 rounded text-sf-text-muted hover:text-sf-text-primary hover:bg-white/10" aria-label="Remove">
+              <button type="button" onClick={c.clear} className="grid place-items-center w-4 h-4 rounded text-sf-text-muted hover:text-sf-text-primary hover:bg-white/10" aria-label={t('Remove')}>
                 <Icon name="x" size={11} strokeWidth={2.2} />
               </button>
             </span>
@@ -500,7 +504,7 @@ function SelectionBar({
         ))}
       </div>
       <button type="button" className="sf-btn sf-btn-primary w-full mt-3" onClick={onApply}>
-        {unchanged ? 'Keep this location' : 'Use this location'}
+        {unchanged ? t('Keep this location') : t('Use this location')}
         <Icon name="arrowRight" size={14} strokeWidth={2.2} />
       </button>
     </div>
@@ -513,7 +517,7 @@ function CountryRow({ c, selected, drill, onClick }: { c: GeoCountry; selected: 
   return (
     <Row
       leading={<Flag code={c.code} />}
-      title={c.name}
+      title={countryName(c.code)}
       selected={selected}
       trailingIcon={drill ? 'chevronRight' : undefined}
       onClick={onClick}
@@ -530,6 +534,6 @@ function Count({ n }: { n?: number }) {
   return <span className="sf-mono text-[11px] text-sf-text-muted">{n}</span>;
 }
 
-function NoneHere({ what }: { what: string }) {
-  return <p className="px-3 py-6 text-center text-[12.5px] text-sf-text-muted">No {what} match your search.</p>;
+function NoneHere({ text }: { text: string }) {
+  return <p className="px-3 py-6 text-center text-[12.5px] text-sf-text-muted">{text}</p>;
 }

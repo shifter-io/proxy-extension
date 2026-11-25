@@ -1,3 +1,4 @@
+import { countryName } from '../format';
 import { slugify } from '../proxy/slug';
 import type { GeoAsn, GeoCity, GeoCountry, GeoRegion, GeoSearchResult } from '../types';
 
@@ -147,7 +148,8 @@ export const geoCatalog = {
       const c = byCode.get(rc.code)!;
       const country = plain(rc);
       if (!number) {
-        const tier = rc.code === q ? 9 : byName(rc.name, 6, 3);
+        // The English name or the one shown in the active language.
+        const tier = rc.code === q ? 9 : Math.max(byName(rc.name, 6, 3), byName(countryName(rc.code), 6, 3));
         if (tier) push({ kind: 'country', country }, tier, rc.rank);
         for (const r of c.regions) {
           const t = byName(r.name, 5, 2);

@@ -1,4 +1,5 @@
 import { browser } from '#imports';
+import { t } from '../i18n';
 import { activeProxyItem } from '../storage';
 import { chromeBypassList, isBypassed } from './bypass';
 
@@ -57,10 +58,10 @@ export class BrowserProxyController implements ProxyController {
     if (!import.meta.env.FIREFOX) {
       const current = await browser.proxy.settings.get({});
       if (current.levelOfControl === 'controlled_by_other_extensions') {
-        throw new Error('Another extension controls your proxy settings. Turn it off and try again.');
+        throw new Error(t('Another extension controls your proxy settings. Turn it off and try again.'));
       }
       if (current.levelOfControl === 'not_controllable') {
-        throw new Error('Your browser policy does not allow extensions to change the proxy.');
+        throw new Error(t('Your browser policy does not allow extensions to change the proxy.'));
       }
       await browser.proxy.settings.set({
         scope: 'regular',

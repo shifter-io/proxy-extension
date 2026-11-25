@@ -1,5 +1,6 @@
 import type { Membership } from '@/lib/types';
 import { isUsable } from '@/lib/format';
+import { t } from '@/lib/i18n';
 import { Icon } from '../components/Icon';
 import { MembershipCard } from '../components/MembershipCard';
 import { EmptyState, Screen, SectionLabel, TopBar, Wordmark } from '../components/primitives';
@@ -21,7 +22,7 @@ export function MembershipsScreen() {
     : [{ id: 'all', name: '', memberships: memberships ?? [] }];
   // Older responses have no workspace metadata. Never hide those plans.
   if (grouped && !workspaces.some((w) => w.personal) && memberships?.some((m) => !m.workspace)) {
-    groups.unshift({ id: 'legacy-personal', name: 'Personal', memberships: memberships.filter((m) => !m.workspace) });
+    groups.unshift({ id: 'legacy-personal', name: t('Personal'), memberships: memberships.filter((m) => !m.workspace) });
   }
 
   async function choose(id: string) {
@@ -37,7 +38,7 @@ export function MembershipsScreen() {
           onBack={canGoBack ? back : undefined}
           left={<span className="flex-1 pl-1.5"><Wordmark height={22} /></span>}
           right={
-            <button type="button" className="sf-icon-btn" aria-label="Settings" onClick={() => push({ name: 'settings' })}>
+            <button type="button" className="sf-icon-btn" aria-label={t('Settings')} onClick={() => push({ name: 'settings' })}>
               <Icon name="settings" size={16} />
             </button>
           }
@@ -50,9 +51,9 @@ export function MembershipsScreen() {
       {membershipsError && (
         <EmptyState
           icon="refresh"
-          title="Something went wrong"
+          title={t('Something went wrong')}
           body={membershipsError}
-          action={<button className="sf-btn sf-btn-ghost sf-btn-sm" onClick={() => reloadMemberships()}>Try again</button>}
+          action={<button className="sf-btn sf-btn-ghost sf-btn-sm" onClick={() => reloadMemberships()}>{t('Try again')}</button>}
         />
       )}
 
@@ -60,7 +61,7 @@ export function MembershipsScreen() {
         <>
 
           {grouped ? groups.map((group) => (
-            <section key={group.id} aria-label={group.name || 'Memberships'} className="mb-6">
+            <section key={group.id} aria-label={group.name || t('Memberships')} className="mb-6">
               <h2 className="mb-3 text-[14px] font-semibold break-words">{group.name}</h2>
               <PlanList memberships={group.memberships} grouped={grouped} onChoose={choose} />
             </section>
@@ -71,7 +72,7 @@ export function MembershipsScreen() {
             className="mt-6 mb-2 w-full sf-btn sf-btn-ghost sf-btn-sm"
             onClick={() => openExternal(SHIFTER_URLS.order)}
           >
-            <Icon name="plus" size={14} /> Add a plan
+            <Icon name="plus" size={14} /> {t('Add a plan')}
           </button>
         </>
       )}
@@ -86,25 +87,25 @@ function PlanList({ memberships, grouped, onChoose }: { memberships: Membership[
     <>
       {usable.length === 0 && (
         grouped ? (
-          <p className="text-[12px] text-sf-text-tertiary">No active Residential or ISP plans in this workspace.</p>
+          <p className="text-[12px] text-sf-text-tertiary">{t('No active Residential or ISP plans in this workspace.')}</p>
         ) : (
           <EmptyState
             icon="layers"
-            title="No active memberships"
-            body="Get a Residential or ISP plan on Shifter and it will show up here instantly."
-            action={<button className="sf-btn sf-btn-primary sf-btn-sm" onClick={() => openExternal(SHIFTER_URLS.order)}>View plans <Icon name="external" size={13} /></button>}
+            title={t('No active memberships')}
+            body={t('Get a Residential or ISP plan on Shifter and it will show up here instantly.')}
+            action={<button className="sf-btn sf-btn-primary sf-btn-sm" onClick={() => openExternal(SHIFTER_URLS.order)}>{t('View plans')} <Icon name="external" size={13} /></button>}
           />
         )
       )}
       {usable.length > 0 && (
         <div className="flex flex-col gap-3 animate-sf-fade-in">
-          <SectionLabel right={<span className="sf-mono text-[11px] text-sf-text-muted">{usable.length}</span>}>Active</SectionLabel>
+          <SectionLabel right={<span className="sf-mono text-[11px] text-sf-text-muted">{usable.length}</span>}>{t('Active')}</SectionLabel>
           {usable.map((m) => <MembershipCard key={m.id} m={m} onSelect={() => onChoose(m.id)} onRenew={() => openExternal(SHIFTER_URLS.renew(m))} />)}
         </div>
       )}
       {inactive.length > 0 && (
         <div className="flex flex-col gap-3 mt-6">
-          <SectionLabel>Inactive</SectionLabel>
+          <SectionLabel>{t('Inactive')}</SectionLabel>
           {inactive.map((m) => <MembershipCard key={m.id} m={m} onSelect={() => undefined} onRenew={() => openExternal(SHIFTER_URLS.renew(m))} />)}
         </div>
       )}

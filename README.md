@@ -178,6 +178,7 @@ npm ci
 npm run dev             # Chromium extension with live reload
 npm run dev:firefox     # Firefox development
 npm run compile        # TypeScript check
+npm run i18n:check     # Every string translated, none left outside t()
 npm run build          # Production Chromium build
 npm run build:firefox   # Production Firefox build
 npm run zip            # Chromium package
@@ -193,6 +194,20 @@ npm run preview:ui
 Open `http://localhost:4178/popup.html`. The preview uses synthetic account data and simulated proxy connections; it does not route your browser traffic. Add `?reset` to clear preview state, or `?demo` to open a signed-in mock plan. Do not enter a real API key into the mock preview.
 
 Mock keys contain at least 32 letters or digits. Prefix a key with `single`, `country`, `nongeo`, `isp`, `none`, or `invalid` to exercise the corresponding plan or error scenario. All mock exit IPs use documentation-only address space.
+
+### Languages
+
+The popup speaks the Shifter app's eight languages: English, Spanish, Simplified Chinese, German, French, Japanese, Korean, and Brazilian Portuguese. Settings > Language picks one, or Automatic, which follows the browser's languages (any Chinese gets Simplified Chinese, any Portuguese gets Brazilian Portuguese, anything else English).
+
+The English text is the key. Wrap each user-facing string in `t('...')`, or `tf('... {name} ...', { name })` when it has placeholders (`src/lib/i18n.ts`), then fill the catalogs in `src/locales/`:
+
+```sh
+node scripts/i18n/keys.mjs > /tmp/ext-keys.txt
+set -a; . ./path/to/env-file; set +a; node scripts/i18n/translate.mjs /tmp/ext-keys.txt --app <app assets/i18n folder>
+node scripts/i18n/audit.mjs /tmp/ext-keys.txt
+```
+
+`translate.mjs` reuses the Shifter app's catalog for every key the app also has, translates the rest with a model, and applies the hand-checked `scripts/i18n/overrides.json` last. The API key is read only from `ANTHROPIC_API_KEY` in the environment. `npm run i18n:check` fails when a key is missing from a catalog, when placeholders differ, when a translation has a dash or an emoji, and when JSX text or a user-facing prop skips `t()`. The store name and description live in `public/_locales/`.
 
 ### End-to-end checks
 
@@ -230,6 +245,7 @@ Every pull request that is ready for review and every merge-queue test runs `.gi
 | `docs` | Checks that the HTML guides in `docs/` match their Markdown sources. |
 | `actionlint` | Lints the workflows. |
 | `compile` | `npm run compile`. |
+| `i18n` | `npm run i18n:check`: every catalog complete, no text outside `t()`. |
 | `builds` | Production builds for Chrome, Firefox, and Edge, then the mock build. |
 | `selftest` | The tests of the CI and build scripts (`scripts/**/*.test.mjs`). |
 | `suite-chrome`, `suite-firefox` | The offline end-to-end suite. |

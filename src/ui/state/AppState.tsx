@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { isUsable, sameTarget } from '@/lib/format';
+import { t } from '@/lib/i18n';
 import { clampTarget } from '@/lib/pools';
 import { sendProxyMessage } from '@/lib/proxy/messages';
 import {
@@ -23,7 +24,8 @@ export type Route =
   | { name: 'memberships' }
   | { name: 'home' }
   | { name: 'location' }
-  | { name: 'settings' };
+  | { name: 'settings' }
+  | { name: 'language' };
 
 interface AppState {
   route: Route;
@@ -119,7 +121,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setMembershipsError(
         err instanceof ApiError && (err.code === 'network' || err.code === 'rate_limited')
           ? err.message
-          : 'Could not load your memberships.',
+          : t('Could not load your memberships.'),
       );
       return [];
     }

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import { countryName, ispIpLabel } from '@/lib/format';
+import { t, tf } from '@/lib/i18n';
 import type { IspIp, IspMembership } from '@/lib/types';
 import { Flag, EmptyState, Screen, SearchInput, SectionLabel, TopBar } from '../../components/primitives';
 import { Row, RowsSkeleton } from '../../components/Rows';
@@ -56,13 +57,13 @@ export function IspPicker({ m }: { m: IspMembership }) {
     <Screen
       header={
         <>
-          <TopBar onBack={back} title="Choose an IP" right={<span className="sf-pill sf-pill--xs sf-pill-neutral mr-1">{m.ipCount} IPs</span>} />
+          <TopBar onBack={back} title={t('Choose an IP')} right={<span className="sf-pill sf-pill--xs sf-pill-neutral mr-1">{tf('{n} IPs', { n: m.ipCount })}</span>} />
           <div className="px-4 pt-3 pb-2 flex flex-col gap-2.5">
-            <SearchInput value={query} onChange={setQuery} placeholder="Search country, city, carrier or ASN" autoFocus />
+            <SearchInput value={query} onChange={setQuery} placeholder={t('Search country, city, carrier or ASN')} autoFocus />
             {m.countries.length > 1 && (
               <div className="sf-segmented">
                 <button className={country === 'all' ? 'active' : ''} onClick={() => setCountry('all')}>
-                  All
+                  {t('All')}
                 </button>
                 {m.countries.map((c) => (
                   <button key={c} className={country === c ? 'active' : ''} onClick={() => setCountry(c)}>
@@ -79,10 +80,10 @@ export function IspPicker({ m }: { m: IspMembership }) {
     >
       {ips.loading && <RowsSkeleton />}
       {!ips.loading && !!ips.error && (
-        <EmptyState icon="refresh" title="Could not load your IPs" body="Check your connection and open this screen again." />
+        <EmptyState icon="refresh" title={t('Could not load your IPs')} body={t('Check your connection and open this screen again.')} />
       )}
       {!ips.loading && !ips.error && groups.length === 0 && (
-        <EmptyState icon="search" title="No IPs match" body="Try a different country, city or carrier." />
+        <EmptyState icon="search" title={t('No IPs match')} body={t('Try a different country, city or carrier.')} />
       )}
       <div className="flex flex-col gap-4 pt-1">
         {groups.map(([key, list]) => {
@@ -102,7 +103,7 @@ export function IspPicker({ m }: { m: IspMembership }) {
                   title={ispIpLabel(ip)}
                   subtitle={
                     <>
-                      {ip.asn && !ip.isp.startsWith('AS') ? `AS${ip.asn}` : 'Static ISP IP'}
+                      {ip.asn && !ip.isp.startsWith('AS') ? `AS${ip.asn}` : t('Static ISP IP')}
                       {live?.id === ip.id && <span className="sf-mono text-sf-text-secondary"> · {live.ip}</span>}
                     </>
                   }

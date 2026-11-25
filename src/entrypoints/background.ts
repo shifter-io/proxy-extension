@@ -26,6 +26,7 @@ import {
 } from '@/lib/storage';
 import type { ConnectionState, ProxyCredentials, ProxySettings, Target } from '@/lib/types';
 import { watchToolbarConnection } from '@/lib/toolbar';
+import { t } from '@/lib/i18n';
 
 const controller: ProxyController = USE_MOCK ? new MockProxyController() : new BrowserProxyController();
 
@@ -36,7 +37,7 @@ const controller: ProxyController = USE_MOCK ? new MockProxyController() : new B
  * asking again for the same username means the gateway rejected it.
  */
 const answered = new Map<string, string>();
-const REJECTED = 'Shifter rejected the proxy login. Check your plan is active and has traffic left.';
+const rejected = () => t('Shifter rejected the proxy login. Check your plan is active and has traffic left.');
 /** Set when the gateway rejects the login; read by connect() to explain a failed IP check. */
 let loginRejected = false;
 
@@ -119,10 +120,10 @@ async function connect(membershipId: string, target: Target, keepSid = false): P
       await controller.clear();
       throw new Error(
         loginRejected
-          ? REJECTED
+          ? rejected()
           : target.kind === 'residential' && target.country
-          ? 'No IP is available for this location right now. Try a wider area.'
-          : 'The Shifter gateway did not respond. Check your plan has traffic left.',
+          ? t('No IP is available for this location right now. Try a wider area.')
+          : t('The Shifter gateway did not respond. Check your plan has traffic left.'),
       );
     }
 
@@ -144,7 +145,7 @@ async function connect(membershipId: string, target: Target, keepSid = false): P
     }
     // A failed switch must not leave a half-applied proxy behind.
     await controller.clear().catch(() => undefined);
-    const error = err instanceof Error ? err.message : 'Could not connect';
+    const error = err instanceof Error ? err.message : t('Could not connect');
     await connectionItem.setValue({ status: 'error', message: error });
     return { ok: false, error };
   }
@@ -166,7 +167,7 @@ async function chooseAddress(endpoint: ProxyEndpoint, c: ProxyCredentials, targe
   const { address, fresh } = await pickAddress(pool, endpoint.username);
   if (!fresh && !import.meta.env.FIREFOX) {
     throw new Error(
-      'Restart your browser to change the proxy location or session: all available gateway addresses have cached credentials.',
+      t('Restart your browser to change the proxy location or session: all available gateway addresses have cached credentials.'),
     );
   }
   endpoint.host = address.host;
@@ -227,7 +228,7 @@ async function markRejected() {
     const c = await connectionItem.getValue();
     if (c.status !== 'connected') return;
     await controller.clear();
-    await connectionItem.setValue({ status: 'error', message: REJECTED });
+    await connectionItem.setValue({ status: 'error', message: rejected() });
   } finally {
     rejecting = false;
   }

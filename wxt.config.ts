@@ -23,9 +23,10 @@ export default defineConfig({
     ],
   },
   manifest: ({ browser, manifestVersion }) => ({
-    name: 'Shifter — Proxy & VPN',
-    description:
-      'Browse through Shifter Residential and ISP proxies with your existing Shifter membership.',
+    // Store name and description per language: public/_locales/<code>/messages.json.
+    default_locale: 'en',
+    name: '__MSG_extName__',
+    description: '__MSG_extDescription__',
     // proxy: route the browser through the gateway. webRequest (+ AuthProvider
     // on Chrome MV3, Blocking on MV2): answer the gateway login. privacy: keep
     // WebRTC on the proxied route.
