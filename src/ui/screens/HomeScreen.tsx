@@ -189,7 +189,7 @@ function ConnectHero({
             </>
           )}
           {connecting && t('Securing your route through Shifter')}
-          {status === 'disconnected' && (needsTarget ? t('Pick an IP to get started') : t('Tap to route this browser through Shifter'))}
+          {status === 'disconnected' && (needsTarget ? t('Pick an IP to get started') : t('Click to route this browser through Shifter'))}
           {status === 'error' && <span className="text-[#fca5a5]">{error}</span>}
         </div>
       </div>
