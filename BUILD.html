@@ -9,6 +9,7 @@ body{font:16px/1.65 system-ui,sans-serif;max-width:820px;margin:48px auto;paddin
 <main>
 <h1>Shifter extension build instructions</h1>
 <p>Production packages use the live Shifter API and real browser proxy controller. Source includes the toolbar connection badge and country-wide state, city and ASN search.</p>
+<h2>Version 0.2.0: languages and sharp flags</h2><p>The interface is available in English, Spanish, Simplified Chinese, German, French, Japanese, Korean and Brazilian Portuguese. It follows the browser language by default (any Chinese gets Simplified Chinese, any Portuguese gets Brazilian Portuguese, anything else English), and Settings has a language picker that is stored in extension storage. Translations are bundled JSON catalogs in <code>src/locales/</code>; the store name and description are localized through <code>public/_locales/</code>. Country names use the browser&#39;s <code>Intl.DisplayNames</code>. No remote code or translation service is used at runtime.</p><p>The flag images in <code>public/flags/</code> are now 96 x 72 PNG renders of flag-icons (MIT, see <code>docs/third-party-notices.html</code>) instead of 16 x 11 icons.</p><p>Verification: <code>npm run compile</code>, <code>npm run i18n:check</code> (every visible string translated in every catalog), and Chrome and Firefox builds.</p>
 <h2>Version 0.1.2: current plans only</h2>
 <p>The plan list shows only current Residential and ISP plans. Legacy pinned-IP ISP plans (panel category "Static Residential Proxies") are no longer listed as suspended Residential plans; like other product lines they are left out, since the API gives no proxy login for them.</p>
 <p>Verification: <code>npm run compile</code>, and the Chrome and Firefox end-to-end suites passed with legacy and Special Rotating plans in the stand-in account. Legacy product filtering is covered by synthetic test fixtures.</p>
@@ -23,11 +24,11 @@ body{font:16px/1.65 system-ui,sans-serif;max-width:820px;margin:48px auto;paddin
 <pre><code>npm ci
 npm run compile
 npm run zip:firefox</code></pre>
-<p>The upload package is <code>build/shifter-proxy-extension-0.1.2-firefox.zip</code>. Its unpacked contents are in <code>build/firefox-mv2/</code>. The separately generated <code>build/shifter-proxy-extension-0.1.2-sources.zip</code> is the reviewer source archive.</p>
+<p>The upload package is <code>build/shifter-proxy-extension-0.2.0-firefox.zip</code>. Its unpacked contents are in <code>build/firefox-mv2/</code>. The separately generated <code>build/shifter-proxy-extension-0.2.0-sources.zip</code> is the reviewer source archive.</p>
 <h2>Chrome and Edge</h2>
 <pre><code>npm run zip
 npx wxt zip -b edge</code></pre>
-<p>These produce <code>build/shifter-proxy-extension-0.1.2-chrome.zip</code> and <code>build/shifter-proxy-extension-0.1.2-edge.zip</code>. Upload the browser-specific ZIP with <code>manifest.json</code> at its root.</p>
+<p>These produce <code>build/shifter-proxy-extension-0.2.0-chrome.zip</code> and <code>build/shifter-proxy-extension-0.2.0-edge.zip</code>. Upload the browser-specific ZIP with <code>manifest.json</code> at its root.</p>
 <h2>Included assets</h2>
 <p>The location catalog, icons, flags and fonts are included. Do not regenerate them to reproduce this release: the build uses <code>src/lib/geo/catalog.json</code> and the files under <code>public/</code> directly. Source for the catalog and icon generators is included for reference; running those generators is not a build step.</p>
 <h2>Review notes</h2>
